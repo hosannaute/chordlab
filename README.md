@@ -6,6 +6,12 @@
 
 ![CHORDLAB desktop workspace](docs/screenshots/desktop.jpg)
 
+<details><summary>Compact melody editor and phone playback controls</summary>
+
+![CHORDLAB phone melody editor](docs/screenshots/mobile-editor.jpg)
+
+</details>
+
 ## What you can do
 
 - Explore major and natural minor in all 12 chromatic keys, with contextual enharmonic spelling, diatonic triads and seventh chords.

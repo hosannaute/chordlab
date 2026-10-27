@@ -8,6 +8,8 @@ Verified through the application controls: clearing/restoring chords and melody;
 
 The harness is `docs/responsive-check.html` (serve with `npm run dev`). Its iframe height fits the available browser window so the fixed mobile playback controls are reachable during automation. During the automation session, one injected MutationObserver error was logged; the application source does not use MutationObserver. Remaining browser checks and production verification are recorded separately from that automation instrumentation error.
 
+The compiled production preview additionally passed mobile Play/Stop, keyboard Delete followed by Undo, and a four-note melody check at phone width. Its phone screenshot is in `docs/screenshots/mobile-editor.jpg`. An automation-injected MutationObserver error also appeared after replacing focused DOM cells; no application module or runtime dependency uses MutationObserver. This is retained here rather than presenting the session as an error-free console run.
+
 The original release results below are retained as historical evidence; the synthesis engine was not changed in this usability pass.
 
 Verified on 27 October 2026 using Node 24 on Windows and the Codex Chromium-based in-app browser. This records evidence, not a claim that every browser/device is bug-free.
