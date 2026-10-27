@@ -59,7 +59,9 @@ export class Playback {
       }
       this.cursor++;
     }
-    const position = Math.max(0, beat) % this.song.beats;
+    const position = this.loop
+      ? Math.max(0, beat) % this.song.beats
+      : Math.min(Math.max(0, beat), this.song.beats);
     this.onFrame(
       position,
       this.song.events.filter(

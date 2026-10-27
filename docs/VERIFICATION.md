@@ -4,7 +4,7 @@ Verified on 27 October 2026 using Node 24 on Windows and the Codex Chromium-base
 
 ## Automated results
 
-- `npm test`: **16 tests passed, 0 failed**.
+- `npm test`: **17 tests passed, 0 failed**.
 - `npm run build`: **passed**, with the `/chordlab/` repository base path.
 - Production preview at `/chordlab/`: application loaded and composition playback initialized.
 - Actual browser `OfflineAudioContext` harness: **6/6 checks passed**. All five instrument presets produced nonzero finite audio, stayed below a peak of 1 for the four-note test chord, ended with silent tails and left no retained voices. Cancelling a future scheduled note rendered silence and released its graph.

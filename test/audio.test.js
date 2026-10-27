@@ -135,6 +135,21 @@ function fakeAudio() {
     },
   };
 }
+test("non-looping visual playhead does not wrap while release tails finish", async () => {
+  const audio = fakeAudio();
+  let frame;
+  const playback = new Playback(audio, (beat, events) => { frame = { beat, events }; }, () => {});
+  const project = newProject();
+  project.tempo = 120;
+  project.progression = [{ degree: 0, beats: 1, seventh: false, inversion: 0 }];
+  await playback.play(project, false);
+  clearInterval(playback.timer);
+  audio.context.currentTime = 0.6;
+  playback.tick();
+  assert.equal(frame.beat, 1);
+  assert.equal(frame.events.length, 0);
+  playback.stop();
+});
 test("scheduler limits lookahead, avoids duplicate notes and applies tempo to later events", async () => {
   const audio = fakeAudio(),
     playback = new Playback(
