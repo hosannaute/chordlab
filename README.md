@@ -19,11 +19,11 @@
 - Inspect each chord's notes, Roman numeral, semitone formula and musical function.
 - Play one or two octaves with mouse, touch pointers or the computer keyboard. Use sustain, volume, octave selection, labels and scale highlighting.
 - Play a sampled Grand Piano using Alexander Holm's Salamander recordings of a Yamaha C5. New projects use Grand Piano; existing projects retain their saved sound. Soft Piano, Electric Piano, Synth Pad, Plucked Synth and Organ remain available.
-- Compose a melody on a half-beat grid; move, resize and delete notes; play it alone or with chords. Phone layouts show one bar per page; larger layouts show two.
+- Compose up to 512 melody notes on an eighth-, sixteenth- or thirty-second-note grid. Add bars, repeat a phrase into editable copies, and move, resize or delete notes. Previous/Next and optional playback following keep long phrases accessible on phones.
 - Undo/redo up to 100 composition edits, including clearing a part or replacing a progression. Consecutive typing changes are grouped, and undo tracks the saved composition accurately.
 - Start with a compact scale-note melody view, reveal chromatic notes, and drag notes or their right edges to move/resize them. Editing buttons and keyboard navigation remain available.
 - Keep Play, Stop, Loop, Undo and Redo within reach using the fixed phone playback bar. Sound and keyboard settings fold away on smaller screens.
-- Chords and melody loop together by default; melody-only playback loops too. Turn Loop off for a single pass. Changing tempo affects newly scheduled notes; notes already sounding keep their scheduled release.
+- Chords and melody loop independently on the same tempo clock: a one-bar melody repeats throughout a four-bar chord progression. Melody-only playback uses the same phrase length. Set a custom time signature and choose automatic or explicit melody loop length in bars.
 - Save, rename, reopen and delete multiple local projects. Import/export validated version-2 JSON backups.
 - Export standard format-1 MIDI with a tempo/time-signature track and separate chord/melody tracks.
 - Learn eight short theory topics with audio examples.
@@ -55,10 +55,20 @@ No runtime package dependencies. The application uses vanilla JavaScript ES modu
 1. Pick a key and scale. Tap chord buttons to add and hear them.
 2. Change each chord's length and inversion. Use the arrow controls to reorder.
 3. Add melody notes to the grid. Select a note to change its length or use its move/delete controls.
-4. Press Play to hear both parts repeat until stopped. Loop starts on and repeats the entire composition, including any melody extending past the chords. Melody only repeats its own timeline.
+4. Choose a time signature, then press Play to hear both parts repeat until stopped. Each part loops at its own length on the same clock. Melody only uses the same melody loop length.
 5. Name the project and press Save. Use Library → Export JSON for a portable backup, or Export MIDI to continue in another music tool.
 
-Changing the key transposes the melody by the shortest semitone distance as well as rebuilding the diatonic chords. Changing major/minor changes chord harmony but deliberately keeps melody pitches. Exported MIDI includes one composition pass; the loop setting is for preview only.
+Changing the key transposes the melody by the shortest semitone distance as well as rebuilding the diatonic chords. Changing major/minor changes chord harmony but deliberately keeps melody pitches. Loop off and MIDI export produce one arrangement spanning the longer part, repeating shorter phrases to fill it.
+
+### Time signature, continuous melody and more notes
+
+The time signature controls bar divisions. Set a numerator from **1–32** and a denominator of **1, 2, 4, 8, 16 or 32**: examples include 3/4, 6/8, 7/8 and 5/16. Tempo always counts quarter notes; a 6/8 bar lasts three quarter-note beats. Changing meter preserves existing note timing. **One bar per chord** adjusts all chord lengths to the new meter when desired, and Undo restores the previous lengths.
+
+The melody's **Auto · whole bars** loop ends at the bar containing its last note. A short melody therefore repeats without waiting for a longer chord progression. Choose an explicit **Loop length** to include intentional rests. A shorter setting is rejected if it would hide notes. Different phrase lengths stay on the same clock and may meet again after several cycles; use matching bar counts when you want identical boundaries.
+
+For more than eight notes, choose **Grid → 1/16 notes** (16 positions in a 4/4 bar) or **1/32 notes** (32 positions), and choose a matching note length. Use **＋ Add bar** for a longer phrase, **×2 Repeat phrase** for editable copies, or Previous/Next to reach other bars. Fine grids scroll inside their own panel on phones. **Follow playback** follows both the current melody page and horizontal position; turn it off to inspect another bar while listening. Note count is separate from grid width: a project supports **512 melody notes** within a 128-quarter-note timeline.
+
+Older version-2 saves default to 4/4 and automatic melody length without changing their notes or instrument. New meter and loop-length fields survive local saves and JSON export/import. See [timing details](docs/TIMING.md) for synchronization, limits and research references.
 
 ### Keyboard access
 
@@ -83,6 +93,7 @@ src/
   lessons.js   short beginner-friendly explanations
   history.js   bounded undo/redo snapshots and grouped typing edits
   melody.js    validated note edits, scale rows and responsive page mapping
+  timing.js    meter, quarter-note units, phrase length and bounded grid pages
   main.js      application state, DOM components, editing and downloads
   style.css    responsive workspace, touch controls and visible focus
 test/          unit tests with no testing-framework dependency
@@ -99,7 +110,7 @@ The bank contains 21 recordings from C2 through C7, mapped to neighboring pitche
 
 Recordings are by **Alexander Holm**, licensed **CC BY 3.0**, distributed via the [Tone.js audio repository](https://github.com/Tonejs/audio/tree/efd8296360f9526e379bfbe5c1698ff54d6a1d34/salamander). See the [original Salamander project](https://github.com/sfzinstruments/SalamanderGrandPiano), [bundled attribution](public/audio/grand-piano/ATTRIBUTION.md) and checksum manifest. The files are unmodified; playback repitches and applies gain/envelopes. Source revision and SHA-256 hashes are pinned locally.
 
-The scheduler wakes every 25 ms and schedules approximately 120 ms ahead using `AudioContext.currentTime`. It does not preload an entire composition. UI editing stops playback so a composition cannot silently diverge from the audible timeline. Rapid stop/start uses a generation guard to cancel pending audio initialization.
+The scheduler wakes every 25 ms and schedules approximately 120 ms ahead using `AudioContext.currentTime`. Each part has a sorted event list, loop period and cursor on that shared clock; it does not expand an infinite composition or wait for the other part to end. UI editing stops playback so a composition cannot silently diverge from the audible timeline. Rapid stop/start uses a generation guard to cancel pending audio initialization.
 
 ### Music theory
 
@@ -109,11 +120,11 @@ Pitch classes and spelled note names are separate. A scale advances through seve
 
 ### Storage and MIDI
 
-The `chordlab-projects-v2` library holds up to 100 projects, each with at most 128 chords and 512 melody notes. The melody timeline spans 128 beats and MIDI pitches 36–95. Imports validate numeric ranges, durations, scale, instrument, version, nested entries and file size. Imported IDs are regenerated to avoid overwriting existing projects.
+The `chordlab-projects-v2` library holds up to 100 projects, each with at most 128 chords and 512 melody notes. The melody timeline spans 128 quarter-note beats and MIDI pitches 36–95. Note onsets support 1/32-note resolution. Imports validate numeric ranges, meter, phrase boundaries, durations, scale, instrument, version, nested entries and file size. Imported IDs are regenerated to avoid overwriting existing projects.
 
 The old `chordlab-v1` save is recoverable when no v2 library exists. Its original key is retained. Invalid existing data is reported and never silently overwritten. Writes are explicit; export JSON before clearing browser data or changing devices/origins. The library is local to each browser origin and is not cloud-synchronized.
 
-MIDI uses format 1, 480 PPQN, microseconds-per-quarter-note tempo and 4/4 meter. Note-off events precede note-ons at shared ticks. Same-pitch overlaps on a track merge to avoid early cutoffs. Tracks preserve the full composition length, including silence. General MIDI program suggestions do not reproduce the app's synthesis timbres or sustain pedal gestures.
+MIDI uses format 1, 480 PPQN, microseconds-per-quarter-note tempo and the selected time-signature metadata. Shorter phrases repeat to fill one pass of the longer part, with notes clipped at the arrangement end. Note-off events precede note-ons at shared ticks. Same-pitch overlaps on a track merge to avoid early cutoffs. Tracks preserve the full composition length, including silence. Exports estimated above 200,000 note events are rejected before allocating the arrangement. General MIDI program suggestions do not reproduce the app's timbres or sustain pedal gestures.
 
 ## Verification
 
@@ -133,12 +144,12 @@ For a fork, change the base path if the repository name changes. Select **Settin
 
 - Physical Android multitouch, device audio latency, speaker quality, Safari/iOS behavior and screen-reader workflows still require target-device testing.
 - The Grand Piano is a compact sample bank, with the limitations described above. There is no recording, audio export, MIDI hardware input, velocity editor or effects rack.
-- Timing is a fixed half-beat grid in 4/4. Melody length is limited to 32 bars; chord timelines can be longer. Large sessions may need additional profiling on older phones.
+- A project has one time signature; mid-song meter changes, swing and triplet grids are not implemented. Melody length is limited to 128 quarter-note beats (32 bars in 4/4); chord timelines can be longer. Large sessions may need additional profiling on older phones.
 - Tempo changes affect future scheduling; held voices retain their existing duration. Preview timbres and pedal gestures are not embedded in MIDI.
 - No collaboration or cloud storage. Chord reordering uses accessible move controls; melody notes support pointer dragging as well as editing controls.
 - Local save data can be removed by browser cleanup/private mode. JSON exports are the supported backup/transfer mechanism.
 - Key choices cover all pitch classes using a practical spelling; there is no separate enharmonic-key selector. Harmonic/melodic minor and borrowed chords are future additions.
-- The piano initially shows one octave on phones; its range remains user-selectable. Melody paging adapts when crossing the phone breakpoint, preserving the visible beat.
+- The piano initially shows one octave on phones; its range remains user-selectable. Melody pages normally contain one bar on phones and two on larger displays, capped at 32 columns. Fine grids scroll within the panel and paging preserves the visible beat across layout changes.
 
 Useful next improvements are automatic draft recovery, physical-device regression checks, smoother duration changes during tempo edits, MIDI input and optional offline installation. See [the usability update](docs/USABILITY.md) for the current editing behavior.
 
