@@ -1,3 +1,4 @@
+import { GrandPiano, GRAND_SAMPLES } from "./grand-piano.js";
 const PRESETS = {
   "soft-piano": {
     wave: "triangle",
@@ -41,10 +42,15 @@ const PRESETS = {
   },
 };
 export class AudioEngine {
-  constructor() {
+  constructor({ onStatus = () => {} } = {}) {
     this.voices = new Set();
     this.volume = 0.65;
     this.instrument = "soft-piano";
+    this.generation = 0;
+    this.onStatus = onStatus;
+  }
+  get grandReady() {
+    return this.grandPiano?.buffers.size === GRAND_SAMPLES.length;
   }
   async init() {
     if (!this.context) {
@@ -65,6 +71,21 @@ export class AudioEngine {
     if (this.context.state !== "running") await this.context.resume();
     if (this.context.state !== "running")
       throw new Error("Audio could not start. Tap a key to try again.");
+    if (this.instrument === "grand-piano") {
+      this.grandPiano ??= new GrandPiano(this.context, (loaded, total) => {
+        if (this.instrument === "grand-piano")
+          this.onStatus({ state: "loading", loaded, total });
+      });
+      try {
+        await this.grandPiano.load();
+        if (this.instrument === "grand-piano")
+          this.onStatus({ state: "ready" });
+      } catch (error) {
+        if (this.instrument === "grand-piano")
+          this.onStatus({ state: "error", message: error.message });
+        throw error;
+      }
+    }
   }
   setVolume(value) {
     this.volume = value;
@@ -78,7 +99,13 @@ export class AudioEngine {
     group = "live",
   ) {
     const a = this.context,
-      preset = PRESETS[this.instrument];
+      sampled = this.instrument === "grand-piano",
+      sample = sampled ? this.grandPiano?.get(pitch) : null,
+      preset = sampled
+        ? { attack: 0.004, release: 0.35 }
+        : PRESETS[this.instrument];
+    if (sampled && !sample)
+      throw new Error("Grand piano is not loaded yet. Tap Play to load it.");
     if (this.voices.size >= 32) {
       const oldest = this.voices.values().next().value;
       oldest.release(a.currentTime, true);
@@ -88,29 +115,42 @@ export class AudioEngine {
     envelope.gain.value = 0;
     envelope.connect(this.master);
     const start = Math.max(a.currentTime, when),
-      peak = 0.025;
+      peak = sampled ? 0.055 / sample.peak : 0.025;
     envelope.gain.setValueAtTime(0.0001, start);
     envelope.gain.exponentialRampToValueAtTime(peak, start + preset.attack);
-    envelope.gain.exponentialRampToValueAtTime(
-      Math.max(0.0001, peak * preset.sustain),
-      start + preset.attack + preset.decay,
-    );
-    const oscillators = preset.harmonics.map((amplitude, i) => {
-      const oscillator = a.createOscillator(),
+    if (!sampled)
+      envelope.gain.exponentialRampToValueAtTime(
+        Math.max(0.0001, peak * preset.sustain),
+        start + preset.attack + preset.decay,
+      );
+    let oscillators;
+    if (sampled) {
+      const source = a.createBufferSource(),
         gain = a.createGain();
-      oscillator.type = preset.wave;
-      oscillator.frequency.value = 440 * 2 ** ((pitch - 69) / 12) * (i + 1);
-      gain.gain.value =
-        amplitude / preset.harmonics.reduce((sum, n) => sum + n, 0);
-      oscillator.connect(gain).connect(envelope);
-      oscillator.start(start);
-      return { oscillator, gain };
-    });
+      source.buffer = sample.buffer;
+      source.playbackRate.value = sample.rate;
+      gain.gain.value = 1;
+      source.connect(gain).connect(envelope);
+      source.start(start);
+      oscillators = [{ oscillator: source, gain }];
+    } else
+      oscillators = preset.harmonics.map((amplitude, i) => {
+        const oscillator = a.createOscillator(),
+          gain = a.createGain();
+        oscillator.type = preset.wave;
+        oscillator.frequency.value = 440 * 2 ** ((pitch - 69) / 12) * (i + 1);
+        gain.gain.value =
+          amplitude / preset.harmonics.reduce((sum, n) => sum + n, 0);
+        oscillator.connect(gain).connect(envelope);
+        oscillator.start(start);
+        return { oscillator, gain };
+      });
     let released = false,
       remaining = oscillators.length;
     const voice = {
       pitch,
       group,
+      instrument: this.instrument,
       release: (time = a.currentTime, immediate = false) => {
         if (released && !immediate) return;
         released = true;
@@ -118,7 +158,9 @@ export class AudioEngine {
           tail = immediate ? 0.015 : preset.release;
         if (at < start) {
           envelope.gain.cancelScheduledValues(at);
-          envelope.gain.setValueAtTime(0.0001, at);
+          envelope.gain.setValueAtTime(0, at);
+          oscillators.forEach(({ oscillator }) => oscillator.stop(at));
+          return;
         } else if (envelope.gain.cancelAndHoldAtTime)
           envelope.gain.cancelAndHoldAtTime(at);
         else {
@@ -149,6 +191,7 @@ export class AudioEngine {
     return voice;
   }
   stop(group) {
+    if (!group) this.generation++;
     for (const voice of this.voices)
       if (!group || voice.group === group)
         voice.release(this.context.currentTime, true);

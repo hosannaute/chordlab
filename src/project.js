@@ -1,5 +1,6 @@
 import { diatonicChord, mod } from "./theory.js";
 export const INSTRUMENTS = [
+  "grand-piano",
   "soft-piano",
   "electric-piano",
   "synth-pad",
@@ -13,7 +14,7 @@ export const newProject = () => ({
   key: 0,
   mode: "major",
   tempo: 100,
-  instrument: "soft-piano",
+  instrument: "grand-piano",
   progression: [0, 4, 5, 3].map((degree) => ({
     degree,
     beats: 4,

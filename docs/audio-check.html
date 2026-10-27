@@ -24,14 +24,16 @@
   </style>
   <h1>Real Web Audio verification</h1>
   <p>
-    This developer check renders the actual oscillator/envelope graph with
-    OfflineAudioContext. It checks signal, finite samples, headroom, release
-    tails, cleanup and cancellation without playing through speakers.
+    This developer check renders the actual oscillator, sampled piano and
+    envelope graphs with OfflineAudioContext. It checks signal, finite samples,
+    headroom, release tails, cleanup and cancellation without playing through
+    speakers.
   </p>
   <button id="run">Run audio verification</button>
   <pre id="result" role="status">Ready.</pre>
   <script type="module">
     import { AudioEngine } from "../src/audio.js";
+    import { GrandPiano } from "../src/grand-piano.js";
     const result = document.getElementById("result");
     document.getElementById("run").onclick = async () => {
       result.textContent = "Running…";
@@ -82,8 +84,68 @@
         reports.push(
           "PASS future-note cancellation: silent render, no retained voices",
         );
+        const grandContext = new OfflineAudioContext(2, 44100 * 2, 44100);
+        const bank = new GrandPiano(grandContext);
+        await bank.load();
+        const piano = new AudioEngine();
+        piano.context = grandContext;
+        piano.master = grandContext.createGain();
+        piano.master.gain.value = 0.65;
+        piano.master.connect(grandContext.destination);
+        piano.instrument = "grand-piano";
+        piano.grandPiano = bank;
+        [60, 64, 67, 72].forEach((note) => piano.note(note, 0.05, 0.6));
+        const grandRender = await grandContext.startRendering();
+        let grandPeak = 0;
+        for (
+          let channel = 0;
+          channel < grandRender.numberOfChannels;
+          channel++
+        ) {
+          const signal = grandRender.getChannelData(channel);
+          for (const value of signal) {
+            if (!Number.isFinite(value))
+              throw new Error("Grand piano produced an invalid sample");
+            grandPeak = Math.max(grandPeak, Math.abs(value));
+          }
+          if (signal.slice(-2205).some((n) => Math.abs(n) > 0.00001))
+            throw new Error("Grand piano release tail did not finish");
+        }
+        if (grandPeak < 0.0001 || grandPeak >= 1 || piano.voices.size)
+          throw new Error("Grand piano signal/headroom/cleanup failed");
+        reports.push(
+          `PASS sampled grand piano: 21 real MP3 files decoded, peak ${grandPeak.toFixed(4)}, silent release tail, no retained voices`,
+        );
+        const cancelContext = new OfflineAudioContext(2, 44100, 44100),
+          cancelledPiano = new AudioEngine();
+        cancelledPiano.context = cancelContext;
+        cancelledPiano.master = cancelContext.createGain();
+        cancelledPiano.master.connect(cancelContext.destination);
+        cancelledPiano.instrument = "grand-piano";
+        cancelledPiano.grandPiano = bank;
+        cancelledPiano.note(60, 0.01, 0.5, "transport");
+        cancelledPiano.stop("transport");
+        const cancelledRender = await cancelContext.startRendering();
+        if (
+          cancelledRender
+            .getChannelData(0)
+            .some((n) => Math.abs(n) > 0.00001) ||
+          cancelledPiano.voices.size
+        )
+          throw new Error("Grand piano future cancellation failed");
+        reports.push(
+          "PASS sampled grand piano cancellation: silent render before onset, no retained voices",
+        );
+        const decodedBytes = [...bank.buffers.values()].reduce(
+          (sum, sample) =>
+            sum + sample.buffer.length * sample.buffer.numberOfChannels * 4,
+          0,
+        );
+        reports.push(
+          `Decoded sample bank: ${(decodedBytes / 1048576).toFixed(1)} MiB in this browser.`,
+        );
         result.textContent =
-          reports.join("\n") + "\n6 / 6 real audio checks passed.";
+          reports.join("\n") + "\n8 / 8 real audio checks passed.";
       } catch (error) {
         result.textContent = `FAIL ${error.message}`;
       }
