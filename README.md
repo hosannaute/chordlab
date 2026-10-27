@@ -18,12 +18,12 @@
 - Build progressions with individual previews, durations, inversions, duplication, removal, and accessible move controls. Five starting ideas include ii–V–I and i–VI–III–VII.
 - Inspect each chord's notes, Roman numeral, semitone formula and musical function.
 - Play one or two octaves with mouse, touch pointers or the computer keyboard. Use sustain, volume, octave selection, labels and scale highlighting.
-- Choose Soft Piano, Electric Piano, Synth Pad, Plucked Synth or Organ. **All are synthesized interpretations, not sampled instruments.** No audio samples, paid APIs or account are required.
+- Play a sampled Grand Piano using Alexander Holm's Salamander recordings of a Yamaha C5. New projects use Grand Piano; existing projects retain their saved sound. Soft Piano, Electric Piano, Synth Pad, Plucked Synth and Organ remain available.
 - Compose a melody on a half-beat grid; move, resize and delete notes; play it alone or with chords. Phone layouts show one bar per page; larger layouts show two.
 - Undo/redo up to 100 composition edits, including clearing a part or replacing a progression. Consecutive typing changes are grouped, and undo tracks the saved composition accurately.
 - Start with a compact scale-note melody view, reveal chromatic notes, and drag notes or their right edges to move/resize them. Editing buttons and keyboard navigation remain available.
-- Keep Play, Stop, Undo and Redo within reach using the fixed phone playback bar. Sound and keyboard settings fold away on smaller screens.
-- Play, stop, loop and adjust tempo. Changing tempo affects newly scheduled notes; notes already sounding keep their scheduled release.
+- Keep Play, Stop, Loop, Undo and Redo within reach using the fixed phone playback bar. Sound and keyboard settings fold away on smaller screens.
+- Chords and melody loop together by default; melody-only playback loops too. Turn Loop off for a single pass. Changing tempo affects newly scheduled notes; notes already sounding keep their scheduled release.
 - Save, rename, reopen and delete multiple local projects. Import/export validated version-2 JSON backups.
 - Export standard format-1 MIDI with a tempo/time-signature track and separate chord/melody tracks.
 - Learn eight short theory topics with audio examples.
@@ -55,7 +55,7 @@ No runtime package dependencies. The application uses vanilla JavaScript ES modu
 1. Pick a key and scale. Tap chord buttons to add and hear them.
 2. Change each chord's length and inversion. Use the arrow controls to reorder.
 3. Add melody notes to the grid. Select a note to change its length or use its move/delete controls.
-4. Press Play to hear both parts. Loop repeats the entire composition, including any melody extending past the chords.
+4. Press Play to hear both parts repeat until stopped. Loop starts on and repeats the entire composition, including any melody extending past the chords. Melody only repeats its own timeline.
 5. Name the project and press Save. Use Library → Export JSON for a portable backup, or Export MIDI to continue in another music tool.
 
 Changing the key transposes the melody by the shortest semitone distance as well as rebuilding the diatonic chords. Changing major/minor changes chord harmony but deliberately keeps melody pitches. Exported MIDI includes one composition pass; the loop setting is for preview only.
@@ -74,7 +74,8 @@ The original one-file implementation was refactored without adding a UI framewor
 src/
   theory.js    scales, contextual spelling, chord qualities, inversions, transposition
   project.js   versioned schema, validation, legacy migration, composition event timeline
-  audio.js     synthesized voices, envelopes, master gain, compressor and graph cleanup
+  audio.js     sampled/synthesized voices, envelopes, master gain and graph cleanup
+  grand-piano.js  lazy sample loading, decoding, caching and nearest-note mapping
   playback.js  audio-clock lookahead scheduler, loop and cancellation
   piano.js     pointer/keyboard ownership, sustain, pressed-state rendering
   storage.js   local project library and JSON import
@@ -88,7 +89,15 @@ test/          unit tests with no testing-framework dependency
 docs/          initial audit, verification notes, audio harness and screenshots
 ```
 
-Audio initializes and resumes after user interaction. Each note owns its oscillators and envelope; release disconnects the complete graph. A 32-voice budget, conservative per-voice gain, normalized harmonics and a master compressor manage polyphony/headroom. Live piano ownership uses independent pointer and keyboard IDs, so releasing one input does not release another. Pending initialization cannot resurrect a released note. Stop, window blur and document hiding release sound; playback does not continue in the background.
+Audio initializes and resumes after user interaction. Each note owns its sample source or oscillators and envelope; release disconnects the complete graph. A 32-voice budget, conservative per-voice gain, normalized harmonics and a master compressor manage polyphony/headroom. Live piano ownership uses independent pointer and keyboard IDs, so releasing one input does not release another. Pending initialization cannot resurrect a released note. Stop, window blur and document hiding release sound; playback does not continue in the background.
+
+### Grand Piano recordings
+
+The first Grand Piano play loads approximately **1.4 MB** of self-hosted MP3 recordings, with visible progress and retryable errors. The decoded bank is reused for the page session; network caching follows the browser's normal HTTP cache. The synth sounds load immediately without the sample bank. No API key, account, audio CDN or runtime library is required.
+
+The bank contains 21 recordings from C2 through C7, mapped to neighboring pitches within one semitone across the app's range. It is a compact single-layer selection, not the full Salamander instrument: multiple velocity layers, sympathetic resonance and pedal/hammer noises are omitted. Decoded audio occupies about **96 MiB** at 44.1 kHz in the tested browser; memory varies with the audio context's sample rate. MIDI export carries notes and a program suggestion, not these recordings.
+
+Recordings are by **Alexander Holm**, licensed **CC BY 3.0**, distributed via the [Tone.js audio repository](https://github.com/Tonejs/audio/tree/efd8296360f9526e379bfbe5c1698ff54d6a1d34/salamander). See the [original Salamander project](https://github.com/sfzinstruments/SalamanderGrandPiano), [bundled attribution](public/audio/grand-piano/ATTRIBUTION.md) and checksum manifest. The files are unmodified; playback repitches and applies gain/envelopes. Source revision and SHA-256 hashes are pinned locally.
 
 The scheduler wakes every 25 ms and schedules approximately 120 ms ahead using `AudioContext.currentTime`. It does not preload an entire composition. UI editing stops playback so a composition cannot silently diverge from the audible timeline. Rapid stop/start uses a generation guard to cancel pending audio initialization.
 
@@ -110,7 +119,7 @@ MIDI uses format 1, 480 PPQN, microseconds-per-quarter-note tempo and 4/4 meter.
 
 Run `npm test` and `npm run build`. Unit tests cover all twelve keys in both modes, enharmonic spelling, seventh qualities, inversions, migration, rejected files, save/update/delete, transposition, duration timelines, decoded MIDI events, bounded voices, cleanup, scheduler lookahead, looping and cancellation.
 
-For real browser DSP checks, run the dev server and open `/chordlab/docs/audio-check.html`. Press **Run audio verification**. The harness renders the actual Web Audio graph with `OfflineAudioContext` for all five presets, checking nonzero finite signal, peak headroom, silent tails, released voices and cancellation before a scheduled onset. The harness is a developer page, not part of the production bundle.
+For real browser DSP checks, run the dev server and open `/chordlab/docs/audio-check.html`. Press **Run audio verification**. The eight checks render the actual Web Audio graph with `OfflineAudioContext` for all five synth presets and the decoded Grand Piano recordings, checking nonzero finite signal, peak headroom, silent tails, released voices and cancellation before a scheduled onset. The harness is a developer page, not part of the production bundle.
 
 See [verification notes](docs/VERIFICATION.md) for actual results and remaining device checks. A successful unit test is not a substitute for checking touch behavior or listening on target hardware.
 
@@ -123,7 +132,7 @@ For a fork, change the base path if the repository name changes. Select **Settin
 ## Known limitations and next steps
 
 - Physical Android multitouch, device audio latency, speaker quality, Safari/iOS behavior and screen-reader workflows still require target-device testing.
-- The sounds are intentionally simple synthesis. There is no sampled acoustic piano, recording, audio export, MIDI hardware input, velocity editor or effects rack.
+- The Grand Piano is a compact sample bank, with the limitations described above. There is no recording, audio export, MIDI hardware input, velocity editor or effects rack.
 - Timing is a fixed half-beat grid in 4/4. Melody length is limited to 32 bars; chord timelines can be longer. Large sessions may need additional profiling on older phones.
 - Tempo changes affect future scheduling; held voices retain their existing duration. Preview timbres and pedal gestures are not embedded in MIDI.
 - No collaboration or cloud storage. Chord reordering uses accessible move controls; melody notes support pointer dragging as well as editing controls.
@@ -135,6 +144,6 @@ Useful next improvements are automatic draft recovery, physical-device regressio
 
 ## License
 
-[MIT](LICENSE). No third-party audio samples are included.
+Application code: [MIT](LICENSE). Salamander piano recordings: [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), © Alexander Holm; see [sample credits](public/audio/grand-piano/ATTRIBUTION.md). The software license does not relicense the audio.
 
 Technical references: [Web Audio specification](https://webaudio.github.io/web-audio-api/), [Standard MIDI Files](https://midi.org/standard-midi-files), and [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
