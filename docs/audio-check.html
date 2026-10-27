@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>CHORDLAB · Audio verification</title>
+  <style>
+    body {
+      font: 16px system-ui;
+      background: #171b1a;
+      color: #e6e9e2;
+      max-width: 850px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    button {
+      padding: 15px;
+      font: inherit;
+    }
+    pre {
+      white-space: pre-wrap;
+      line-height: 1.8;
+    }
+  </style>
+  <h1>Real Web Audio verification</h1>
+  <p>
+    This developer check renders the actual oscillator/envelope graph with
+    OfflineAudioContext. It checks signal, finite samples, headroom, release
+    tails, cleanup and cancellation without playing through speakers.
+  </p>
+  <button id="run">Run audio verification</button>
+  <pre id="result" role="status">Ready.</pre>
+  <script type="module">
+    import { AudioEngine } from "../src/audio.js";
+    const result = document.getElementById("result");
+    document.getElementById("run").onclick = async () => {
+      result.textContent = "Running…";
+      try {
+        const reports = [];
+        for (const instrument of [
+          "soft-piano",
+          "electric-piano",
+          "synth-pad",
+          "plucked-synth",
+          "organ",
+        ]) {
+          const context = new OfflineAudioContext(1, 44100 * 2, 44100),
+            audio = new AudioEngine();
+          audio.context = context;
+          audio.master = context.createGain();
+          audio.master.gain.value = 0.65;
+          audio.master.connect(context.destination);
+          audio.instrument = instrument;
+          [60, 64, 67, 71].forEach((n) => audio.note(n, 0.05, 0.55));
+          const buffer = await context.startRendering(),
+            samples = buffer.getChannelData(0);
+          let peak = 0;
+          for (const n of samples) {
+            if (!Number.isFinite(n))
+              throw new Error(`${instrument}: invalid samples`);
+            peak = Math.max(peak, Math.abs(n));
+          }
+          const tail = samples.slice(-2205).some((n) => Math.abs(n) > 0.00001);
+          if (peak < 0.0001 || peak >= 1 || tail || audio.voices.size)
+            throw new Error(
+              `${instrument}: signal/headroom/release/cleanup failed`,
+            );
+          reports.push(
+            `PASS ${instrument}: signal present, no clipping, silent tail, no retained voices`,
+          );
+        }
+        const context = new OfflineAudioContext(1, 44100, 44100),
+          audio = new AudioEngine();
+        audio.context = context;
+        audio.master = context.createGain();
+        audio.master.connect(context.destination);
+        audio.note(60, 0.5, 0.25, "transport");
+        audio.stop("transport");
+        const samples = (await context.startRendering()).getChannelData(0);
+        if (samples.some((n) => Math.abs(n) > 0.00001) || audio.voices.size)
+          throw new Error("Future-note cancellation failed");
+        reports.push(
+          "PASS future-note cancellation: silent render, no retained voices",
+        );
+        result.textContent =
+          reports.join("\n") + "\n6 / 6 real audio checks passed.";
+      } catch (error) {
+        result.textContent = `FAIL ${error.message}`;
+      }
+    };
+  </script>
+</html>

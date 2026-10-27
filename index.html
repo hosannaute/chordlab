@@ -1,17 +1,334 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#171b1a"><meta name="description" content="Explore chords, play a touch-ready piano, and compose melodies. A free, private music workspace with MIDI export."><title>CHORDLAB · A little room for big ideas</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23171b1a'/%3E%3Cpath d='M16 45V18h9v27m7 0V18h9v27m7 0V18' stroke='%23c2dc9d' stroke-width='6'/%3E%3C/svg%3E"></head>
-<body><a class="skip" href="#workspace">Skip to workspace</a>
-<header class="app-header"><a class="brand" href="./" aria-label="Chordlab home"><span class="brand-mark" aria-hidden="true">▥</span> CHORDLAB<span class="version"> / 02</span></a><span class="header-note">A LITTLE ROOM FOR BIG IDEAS</span><span class="local-badge">● Local studio</span></header>
-<main id="workspace">
-<section class="session-header" aria-label="Session"><div><p class="eyebrow">YOUR CREATIVE WORKSPACE</p><label class="sr-only" for="project-name">Project name</label><input id="project-name" class="project-name" maxlength="80" value="Untitled session"><p class="subtitle">Find a feeling. Follow the chords.</p></div><div class="session-actions"><button id="new-project">＋ New</button><button id="save-project" class="accent">Save project</button><button id="projects-toggle" aria-expanded="false" aria-controls="library">Library <span id="project-count">0</span></button></div></section>
-<section id="library" class="panel library" hidden aria-labelledby="library-title"><h2 id="library-title">Your projects</h2><p class="hint">Saved in this browser. Export a JSON backup to keep your work safe.</p><div id="project-list"></div><div class="row"><button id="export-json">Export JSON</button><button id="import-json">Import JSON</button><input id="file-input" type="file" accept=".json,application/json" hidden></div></section>
-<div id="status" role="status" aria-live="polite">Ready when you are. Audio starts with your first note.</div>
-<section class="transport panel" aria-label="Playback and session settings"><div class="transport-buttons"><button id="play" class="play-button" aria-label="Play composition">▶ <span>Play</span></button><button id="stop" aria-label="Stop all sound">■</button><button id="loop" aria-pressed="false">↻ Loop</button></div><div class="tempo-control"><label for="tempo">TEMPO</label><div><input id="tempo" type="number" min="40" max="220" value="100"><span>BPM</span></div></div><div class="setting"><label for="key">KEY</label><select id="key"></select></div><div class="setting"><label for="mode">SCALE</label><select id="mode"><option value="major">Major</option><option value="minor">Natural minor</option></select></div><div class="export-control"><button id="export-midi">↓ Export MIDI</button></div></section>
-<div class="studio-grid">
-<section class="panel progression-panel" aria-labelledby="progression-title"><div class="section-top"><div><p class="eyebrow">01 / THE FOUNDATION</p><h2 id="progression-title">Chord progression</h2></div><span id="progression-length" class="counter">16 beats</span></div><div class="palette-label"><p class="hint">Choose a chord to add &amp; hear</p><label class="check"><input id="sevenths" type="checkbox"> Seventh chords</label></div><div id="palette" class="chord-palette" aria-label="Chords in the selected scale"></div><div class="timeline-label"><span>YOUR PROGRESSION</span><button id="clear-chords" class="text-button">Clear chords</button></div><ol id="sequence" class="sequence" aria-label="Your chord progression"></ol><div class="presets"><label for="preset">START WITH AN IDEA</label><select id="preset"><option value="">Choose a progression…</option><option value="pop">I–V–vi–IV · Familiar places</option><option value="sensitive">vi–IV–I–V · A softer start</option><option value="classic">I–IV–V–I · Back home</option><option value="jazz">ii–V–I · A little jazz</option><option value="minor">i–VI–III–VII · After hours</option></select></div></section>
-<aside class="panel chord-inspector" aria-labelledby="chord-title"><p class="eyebrow">INSIDE THE CHORD</p><div class="chord-symbol" id="chord-title">C</div><div class="inspector-roman" id="chord-roman">I · C major</div><div id="chord-notes" class="note-chips"></div><dl><div><dt>Quality</dt><dd id="chord-quality">Major</dd></div><div><dt>Semitones</dt><dd id="chord-formula">0 · 4 · 7</dd></div></dl><p id="chord-function" class="function-text"></p><button id="preview-chord" class="wide">▷ Hear chord</button></aside>
-<section class="panel piano-panel" aria-labelledby="piano-title"><div class="section-top"><div><p class="eyebrow">02 / PLAY SOMETHING</p><h2 id="piano-title">Keys, at your fingertips.</h2></div><span class="small-label">POLYPHONIC SYNTHESIS</span></div><div class="piano-settings"><div><label for="instrument">SOUND</label><select id="instrument"><option value="soft-piano">Soft Piano · synth</option><option value="electric-piano">Electric Piano · synth</option><option value="synth-pad">Synth Pad</option><option value="plucked-synth">Plucked Synth</option><option value="organ">Organ · synth</option></select></div><div><label for="octave">START OCTAVE</label><select id="octave"><option value="3">C3</option><option value="4" selected>C4</option><option value="5">C5</option></select></div><div><label for="octaves">RANGE</label><select id="octaves"><option value="1">1 octave</option><option value="2" selected>2 octaves</option></select></div><div class="volume"><label for="volume">VOLUME <span id="volume-label">65%</span></label><input id="volume" type="range" min="0" max="100" value="65"></div></div><div id="piano" class="piano" aria-label="Playable piano"></div><div class="piano-footer"><p class="hint">Play <kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd> <kbd>D</kbd> <kbd>F</kbd> … <kbd>K</kbd> · Hold Space for sustain</p><div class="row"><label class="check"><input id="note-labels" type="checkbox" checked> Labels</label><label class="check"><input id="scale-highlight" type="checkbox"> Scale</label><button id="sustain" aria-pressed="false">Sustain</button></div></div></section>
-<section class="panel melody-panel" aria-labelledby="melody-title"><div class="section-top"><div><p class="eyebrow">03 / FIND YOUR MELODY</p><h2 id="melody-title">One note leads to another.</h2></div><button id="play-melody">▷ Melody only</button></div><div class="melody-toolbar"><p class="hint">Tap a cell to add a note; tap a note to edit it. Snaps to half beats.</p><div class="row"><label for="melody-page">BARS</label><select id="melody-page"></select><label for="note-duration">NOTE LENGTH</label><select id="note-duration"><option value="0.5">½ beat</option><option value="1" selected>1 beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select></div></div><div id="melody-grid" class="melody-grid" role="group" aria-label="Melody piano roll"></div><div id="note-editor" class="note-editor" hidden><span id="selected-note"></span><div class="row"><button data-note-action="earlier" aria-label="Move note half a beat earlier">← Earlier</button><button data-note-action="later" aria-label="Move note half a beat later">Later →</button><button data-note-action="up" aria-label="Move note up one semitone">↑</button><button data-note-action="down" aria-label="Move note down one semitone">↓</button><button data-note-action="delete" class="danger">Delete note</button></div></div><div class="melody-bottom"><span class="hint" id="melody-count">0 notes · 4/4 time</span><button id="clear-melody" class="text-button">Clear melody</button></div></section>
-<section class="panel learning-panel" aria-labelledby="learning-title"><div><p class="eyebrow">A LITTLE THEORY, A LOT OF POSSIBILITY</p><h2 id="learning-title">Understand what you hear.</h2></div><div class="learning-content"><label class="sr-only" for="lesson">Learning topic</label><select id="lesson"><option value="scale">What is a scale?</option><option value="chord">What is a chord?</option><option value="mood">Major &amp; minor</option><option value="progression">Chord progressions</option><option value="roman">Roman numerals</option><option value="inversion">Chord inversions</option><option value="transpose">Transposition</option><option value="together">Why chords work together</option></select><p id="lesson-text"></p><button id="lesson-play">▷ Hear an example</button></div></section>
-</div><footer><span class="brand">CHORDLAB</span><span>Made for the moments between “what if” and “that’s it.”</span><a href="https://github.com/hosannaute/chordlab" target="_blank" rel="noreferrer">Source on GitHub ↗</a></footer>
-</main><script type="module" src="/src/main.js"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#171b1a" />
+    <meta
+      name="description"
+      content="Explore chords, play a touch-ready piano, and compose melodies. A free, private music workspace with MIDI export."
+    />
+    <title>CHORDLAB · A little room for big ideas</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23171b1a'/%3E%3Cpath d='M16 45V18h9v27m7 0V18h9v27m7 0V18' stroke='%23c2dc9d' stroke-width='6'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <a class="skip" href="#workspace">Skip to workspace</a>
+    <header class="app-header">
+      <a class="brand" href="./" aria-label="Chordlab home"
+        ><span class="brand-mark" aria-hidden="true">▥</span> CHORDLAB<span
+          class="version"
+        >
+          / 02</span
+        ></a
+      ><span class="header-note">A LITTLE ROOM FOR BIG IDEAS</span
+      ><span class="local-badge">● Local studio</span>
+    </header>
+    <main id="workspace">
+      <h1 class="sr-only">CHORDLAB music studio</h1>
+      <section class="session-header" aria-label="Session">
+        <div>
+          <p class="eyebrow">YOUR CREATIVE WORKSPACE</p>
+          <label class="sr-only" for="project-name">Project name</label
+          ><input
+            id="project-name"
+            class="project-name"
+            maxlength="80"
+            value="Untitled session"
+          />
+          <p class="subtitle">Find a feeling. Follow the chords.</p>
+        </div>
+        <div class="session-actions">
+          <button id="new-project">＋ New</button
+          ><button id="save-project" class="accent">Save project</button
+          ><button
+            id="projects-toggle"
+            aria-expanded="false"
+            aria-controls="library"
+          >
+            Library <span id="project-count">0</span>
+          </button>
+        </div>
+      </section>
+      <section
+        id="library"
+        class="panel library"
+        hidden
+        aria-labelledby="library-title"
+      >
+        <h2 id="library-title">Your projects</h2>
+        <p class="hint">
+          Saved in this browser. Export a JSON backup to keep your work safe.
+        </p>
+        <div id="project-list"></div>
+        <div class="row">
+          <button id="export-json">Export JSON</button
+          ><button id="import-json">Import JSON</button
+          ><input
+            id="file-input"
+            type="file"
+            accept=".json,application/json"
+            hidden
+          />
+        </div>
+      </section>
+      <div id="status" role="status" aria-live="polite">
+        Ready when you are. Audio starts with your first note.
+      </div>
+      <section
+        class="transport panel"
+        aria-label="Playback and session settings"
+      >
+        <div class="transport-buttons">
+          <button id="play" class="play-button" aria-label="Play composition">
+            ▶ <span>Play</span></button
+          ><button id="stop" aria-label="Stop all sound">■</button
+          ><button id="loop" aria-pressed="false">↻ Loop</button>
+        </div>
+        <div class="tempo-control">
+          <label for="tempo">TEMPO</label>
+          <div>
+            <input
+              id="tempo"
+              type="number"
+              min="40"
+              max="220"
+              value="100"
+            /><span>BPM</span>
+          </div>
+        </div>
+        <div class="setting">
+          <label for="key">KEY</label
+          ><select id="key"></select>
+        </div>
+        <div class="setting">
+          <label for="mode">SCALE</label
+          ><select id="mode">
+            <option value="major">Major</option>
+            <option value="minor">Natural minor</option>
+          </select>
+        </div>
+        <div class="export-control">
+          <button id="export-midi">↓ Export MIDI</button>
+        </div>
+      </section>
+      <div class="studio-grid">
+        <section
+          class="panel progression-panel"
+          aria-labelledby="progression-title"
+        >
+          <div class="section-top">
+            <div>
+              <p class="eyebrow">01 / THE FOUNDATION</p>
+              <h2 id="progression-title">Chord progression</h2>
+            </div>
+            <span id="progression-length" class="counter">16 beats</span>
+          </div>
+          <div class="palette-label">
+            <p class="hint">Choose a chord to add &amp; hear</p>
+            <label class="check"
+              ><input id="sevenths" type="checkbox" /> Seventh chords</label
+            >
+          </div>
+          <div
+            id="palette"
+            class="chord-palette"
+            aria-label="Chords in the selected scale"
+          ></div>
+          <div class="timeline-label">
+            <span>YOUR PROGRESSION</span
+            ><button id="clear-chords" class="text-button">Clear chords</button>
+          </div>
+          <ol
+            id="sequence"
+            class="sequence"
+            aria-label="Your chord progression"
+          ></ol>
+          <div class="presets">
+            <label for="preset">START WITH AN IDEA</label
+            ><select id="preset">
+              <option value="">Choose a progression…</option>
+              <option value="pop">I–V–vi–IV · Familiar places</option>
+              <option value="sensitive">vi–IV–I–V · A softer start</option>
+              <option value="classic">I–IV–V–I · Back home</option>
+              <option value="jazz">ii–V–I · A little jazz</option>
+              <option value="minor">i–VI–III–VII · After hours</option>
+            </select>
+          </div>
+        </section>
+        <aside class="panel chord-inspector" aria-labelledby="chord-title">
+          <p class="eyebrow">INSIDE THE CHORD</p>
+          <div class="chord-symbol" id="chord-title">C</div>
+          <div class="inspector-roman" id="chord-roman">I · C major</div>
+          <div id="chord-notes" class="note-chips"></div>
+          <dl>
+            <div>
+              <dt>Quality</dt>
+              <dd id="chord-quality">Major</dd>
+            </div>
+            <div>
+              <dt>Semitones</dt>
+              <dd id="chord-formula">0 · 4 · 7</dd>
+            </div>
+          </dl>
+          <p id="chord-function" class="function-text"></p>
+          <button id="preview-chord" class="wide">▷ Hear chord</button>
+        </aside>
+        <section class="panel piano-panel" aria-labelledby="piano-title">
+          <div class="section-top">
+            <div>
+              <p class="eyebrow">02 / PLAY SOMETHING</p>
+              <h2 id="piano-title">Keys, at your fingertips.</h2>
+            </div>
+            <span class="small-label">POLYPHONIC SYNTHESIS</span>
+          </div>
+          <div class="piano-settings">
+            <div>
+              <label for="instrument">SOUND</label
+              ><select id="instrument">
+                <option value="soft-piano">Soft Piano · synth</option>
+                <option value="electric-piano">Electric Piano · synth</option>
+                <option value="synth-pad">Synth Pad</option>
+                <option value="plucked-synth">Plucked Synth</option>
+                <option value="organ">Organ · synth</option>
+              </select>
+            </div>
+            <div>
+              <label for="octave">START OCTAVE</label
+              ><select id="octave">
+                <option value="3">C3</option>
+                <option value="4" selected>C4</option>
+                <option value="5">C5</option>
+              </select>
+            </div>
+            <div>
+              <label for="octaves">RANGE</label
+              ><select id="octaves">
+                <option value="1">1 octave</option>
+                <option value="2" selected>2 octaves</option>
+              </select>
+            </div>
+            <div class="volume">
+              <label for="volume"
+                >VOLUME <span id="volume-label">65%</span></label
+              ><input id="volume" type="range" min="0" max="100" value="65" />
+            </div>
+          </div>
+          <div id="piano" class="piano" aria-label="Playable piano"></div>
+          <div class="piano-footer">
+            <p class="hint">
+              Play <kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd>
+              <kbd>D</kbd> <kbd>F</kbd> … <kbd>K</kbd> · Hold Space for sustain
+            </p>
+            <div class="row">
+              <label class="check"
+                ><input id="note-labels" type="checkbox" checked />
+                Labels</label
+              ><label class="check"
+                ><input id="scale-highlight" type="checkbox" /> Scale</label
+              ><button id="sustain" aria-pressed="false">Sustain</button>
+            </div>
+          </div>
+        </section>
+        <section class="panel melody-panel" aria-labelledby="melody-title">
+          <div class="section-top">
+            <div>
+              <p class="eyebrow">03 / FIND YOUR MELODY</p>
+              <h2 id="melody-title">One note leads to another.</h2>
+            </div>
+            <button id="play-melody">▷ Melody only</button>
+          </div>
+          <div class="melody-toolbar">
+            <p class="hint">
+              Tap a cell to add a note; tap a note to edit it. Snaps to half
+              beats.
+            </p>
+            <div class="row">
+              <label for="melody-page">BARS</label
+              ><select id="melody-page"></select
+              ><label for="note-duration">NOTE LENGTH</label
+              ><select id="note-duration">
+                <option value="0.5">½ beat</option>
+                <option value="1" selected>1 beat</option>
+                <option value="2">2 beats</option>
+                <option value="4">4 beats</option>
+              </select>
+            </div>
+          </div>
+          <div
+            id="melody-grid"
+            class="melody-grid"
+            role="group"
+            aria-label="Melody piano roll"
+          ></div>
+          <div id="note-editor" class="note-editor" hidden>
+            <span id="selected-note"></span>
+            <div class="row">
+              <button
+                data-note-action="earlier"
+                aria-label="Move note half a beat earlier"
+              >
+                ← Earlier</button
+              ><button
+                data-note-action="later"
+                aria-label="Move note half a beat later"
+              >
+                Later →</button
+              ><button
+                data-note-action="up"
+                aria-label="Move note up one semitone"
+              >
+                ↑</button
+              ><button
+                data-note-action="down"
+                aria-label="Move note down one semitone"
+              >
+                ↓</button
+              ><button data-note-action="delete" class="danger">
+                Delete note
+              </button>
+            </div>
+          </div>
+          <div class="melody-bottom">
+            <span class="hint" id="melody-count">0 notes · 4/4 time</span
+            ><button id="clear-melody" class="text-button">Clear melody</button>
+          </div>
+        </section>
+        <section class="panel learning-panel" aria-labelledby="learning-title">
+          <div>
+            <p class="eyebrow">A LITTLE THEORY, A LOT OF POSSIBILITY</p>
+            <h2 id="learning-title">Understand what you hear.</h2>
+          </div>
+          <div class="learning-content">
+            <label class="sr-only" for="lesson">Learning topic</label
+            ><select id="lesson">
+              <option value="scale">What is a scale?</option>
+              <option value="chord">What is a chord?</option>
+              <option value="mood">Major &amp; minor</option>
+              <option value="progression">Chord progressions</option>
+              <option value="roman">Roman numerals</option>
+              <option value="inversion">Chord inversions</option>
+              <option value="transpose">Transposition</option>
+              <option value="together">Why chords work together</option>
+            </select>
+            <p id="lesson-text"></p>
+            <button id="lesson-play">▷ Hear an example</button>
+          </div>
+        </section>
+      </div>
+      <footer>
+        <span class="brand">CHORDLAB</span
+        ><span>Made for the moments between “what if” and “that’s it.”</span
+        ><a
+          href="https://github.com/hosannaute/chordlab"
+          target="_blank"
+          rel="noreferrer"
+          >Source on GitHub ↗</a
+        >
+      </footer>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
