@@ -1235,9 +1235,6 @@ footer a {
     font-size: 10px;
   }
   .note-editor {
-    position: sticky;
-    bottom: 77px;
-    z-index: 3;
     border: 1px solid #59644e;
   }
   .note-editor button {
@@ -1268,8 +1265,5 @@ footer a {
   }
   .chord-palette small {
     font-size: 11px;
-  }
-  .note-editor {
-    bottom: calc(77px + env(safe-area-inset-bottom));
   }
 }
