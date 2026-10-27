@@ -119,6 +119,31 @@
         <div class="export-control">
           <button id="export-midi">↓ Export MIDI</button>
         </div>
+        <div class="setting meter-setting">
+          <label for="meter-numerator">TIME SIGNATURE</label>
+          <div class="row">
+            <input
+              id="meter-numerator"
+              type="number"
+              min="1"
+              max="32"
+              value="4"
+              aria-label="Time signature numerator"
+            />
+            <span>/</span
+            ><select
+              id="meter-denominator"
+              aria-label="Time signature denominator"
+            >
+              <option>1</option>
+              <option>2</option>
+              <option selected>4</option>
+              <option>8</option>
+              <option>16</option>
+              <option>32</option>
+            </select>
+          </div>
+        </div>
       </section>
       <div class="studio-grid">
         <section
@@ -292,13 +317,41 @@
               ><select id="melody-page"></select
               ><label for="note-duration">NOTE LENGTH</label
               ><select id="note-duration">
-                <option value="0.5">½ beat</option>
-                <option value="1" selected>1 beat</option>
-                <option value="2">2 beats</option>
-                <option value="4">4 beats</option>
+                <option value="0.125">1/32 note</option>
+                <option value="0.25">1/16 note</option>
+                <option value="0.5">1/8 note</option>
+                <option value="1" selected>1/4 note</option>
+                <option value="2">1/2 note</option>
+                <option value="4">Whole note</option>
               </select>
             </div>
           </div>
+          <div class="melody-view-controls row">
+            <label for="melody-bars">LOOP LENGTH</label
+            ><select id="melody-bars"></select>
+            <label for="melody-step">GRID</label
+            ><select id="melody-step">
+              <option value="0.5">1/8 notes</option>
+              <option value="0.25">1/16 notes</option>
+              <option value="0.125">1/32 notes</option>
+            </select>
+            <label class="follow-control"
+              ><input id="melody-follow" type="checkbox" checked /> Follow
+              playback</label
+            >
+          </div>
+          <div class="melody-view-controls row phrase-actions">
+            <button id="melody-prev" aria-label="Previous melody page">
+              ← Previous
+            </button>
+            <button id="melody-next" aria-label="Next melody page">
+              Next →
+            </button>
+            <button id="melody-add-bar">＋ Add bar</button>
+            <button id="melody-repeat">×2 Repeat phrase</button>
+            <button id="chords-to-bars">One bar per chord</button>
+          </div>
+          <p id="loop-summary" class="hint" aria-live="polite"></p>
           <div class="melody-view-controls row">
             <label for="melody-octave">MELODY OCTAVE</label>
             <select id="melody-octave">
@@ -319,11 +372,18 @@
           </div>
           <p id="melody-view-hint" class="hint"></p>
           <div
-            id="melody-grid"
-            class="melody-grid"
-            role="group"
-            aria-label="Melody piano roll"
-          ></div>
+            class="melody-scroll"
+            tabindex="0"
+            role="region"
+            aria-label="Melody grid, scroll horizontally for more steps"
+          >
+            <div
+              id="melody-grid"
+              class="melody-grid"
+              role="group"
+              aria-label="Melody piano roll"
+            ></div>
+          </div>
           <p
             id="drag-feedback"
             class="hint"
@@ -335,12 +395,12 @@
             <div class="row">
               <button
                 data-note-action="earlier"
-                aria-label="Move note half a beat earlier"
+                aria-label="Move note one grid step earlier"
               >
                 ← Earlier</button
               ><button
                 data-note-action="later"
-                aria-label="Move note half a beat later"
+                aria-label="Move note one grid step later"
               >
                 Later →</button
               ><button

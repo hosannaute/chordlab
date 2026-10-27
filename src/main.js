@@ -8,7 +8,7 @@ import {
   pitchName,
   buildChord,
 } from "./theory.js";
-import { newProject, transposeProject, composition } from "./project.js";
+import { newProject, transposeProject, validateProject } from "./project.js";
 import {
   readProjects,
   saveProject,
@@ -21,7 +21,22 @@ import { Playback } from "./playback.js";
 import { Piano } from "./piano.js";
 import { LESSONS } from "./lessons.js";
 import { History } from "./history.js";
-import { changeNote, melodyRows, melodyPage, resizeLength } from "./melody.js";
+import {
+  changeNote,
+  melodyRows,
+  resizeLength,
+  repeatPhrase,
+} from "./melody.js";
+import {
+  barBeats,
+  meterOf,
+  melodyLength,
+  gridLayout,
+  positionLabel,
+  MAX_BEATS,
+  NOTE_LENGTHS,
+  timelineEnd,
+} from "./timing.js";
 const $ = (id) => document.getElementById(id);
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -65,6 +80,8 @@ function showSoundStatus(state) {
 const phoneLayout = window.matchMedia("(max-width: 720px)");
 let compact = phoneLayout.matches;
 let melodyColumns = compact ? 8 : 16;
+let melodyStep = 0.5,
+  melodySpan = compact ? 4 : 8;
 const history = new History(project);
 let savedSignature = JSON.stringify(project);
 let gesture = null,
@@ -80,9 +97,20 @@ piano.octaves = +$("octaves").value;
 piano.draw();
 const playback = new Playback(
   audio,
-  (beat, events) => {
+  (beat, events, melodyBeat = beat) => {
     $("play").innerHTML = "■ <span>Stop</span>";
     $("mobile-play").textContent = "■ Stop";
+    const follow = $("melody-follow").checked && project.melody.length;
+    if (follow) {
+      const page = Math.min(
+        $("melody-page").options.length - 1,
+        Math.floor(melodyBeat / melodySpan),
+      );
+      if (+$("melody-page").value !== page) {
+        $("melody-page").value = page;
+        drawMelody();
+      }
+    }
     const active = new Set(
       events.filter((e) => e.track === "chords").map((e) => e.index),
     );
@@ -99,9 +127,22 @@ const playback = new Playback(
       .forEach((node) =>
         node.classList.toggle(
           "playhead",
-          Math.floor(+node.dataset.start * 2) === Math.floor(beat * 2),
+          Math.floor(+node.dataset.start / melodyStep) ===
+            Math.floor(melodyBeat / melodyStep),
         ),
       );
+    if (follow) {
+      const head = $("melody-grid").querySelector(".playhead"),
+        viewport = document.querySelector(".melody-scroll");
+      if (head) {
+        const cell = head.getBoundingClientRect(),
+          bounds = viewport.getBoundingClientRect();
+        if (cell.left < bounds.left)
+          viewport.scrollLeft += cell.left - bounds.left - 3;
+        else if (cell.right > bounds.right)
+          viewport.scrollLeft += cell.right - bounds.right + 3;
+      }
+    }
   },
   () => {
     $("play").innerHTML = "▶ <span>Play</span>";
@@ -196,7 +237,7 @@ function drawPalette() {
     ...Array.from({ length: 7 }, (_, degree) => {
       const c = {
           degree,
-          beats: 4,
+          beats: barBeats(project),
           inversion: 0,
           seventh: $("sevenths").checked,
         },
@@ -253,10 +294,24 @@ function drawSequence(focusIndex = null, focusAction = null) {
       controls.append(
         selectControl(
           `CHORD ${i + 1} BEATS`,
-          [0.5, 1, 2, 4, 8].map((n) => [
-            n,
-            n === 0.5 ? "½ beat" : `${n} beats`,
-          ]),
+          [
+            ...new Set([
+              0.125,
+              0.25,
+              0.5,
+              1,
+              2,
+              4,
+              8,
+              barBeats(project),
+              c.beats,
+            ]),
+          ]
+            .sort((a, b) => a - b)
+            .map((n) => [
+              n,
+              `${n} quarter beats${n === barBeats(project) ? " · 1 bar" : ""}`,
+            ]),
           c.beats,
           (value) => {
             edit();
@@ -330,6 +385,7 @@ function drawSequence(focusIndex = null, focusAction = null) {
     );
   $("progression-length").textContent =
     `${project.progression.reduce((sum, c) => sum + c.beats, 0)} beats`;
+  updateLoopSummary();
   updateTransport();
   const card = $("sequence").children[focusIndex];
   if (card && focusAction) {
@@ -349,19 +405,28 @@ function updateTransport() {
   $("play-melody").disabled = !project.melody.length;
 }
 function drawMelody(focusCell = null) {
+  if (
+    project.melody.some(
+      (note) => note.start % melodyStep || note.beats < melodyStep,
+    )
+  )
+    drawMelodyPages(+$("melody-page").value * melodySpan);
   const grid = $("melody-grid"),
     page = +$("melody-page").value || 0,
-    startBeat = (page * melodyColumns) / 2;
+    startBeat = page * melodySpan;
   grid.style.setProperty("--roll-columns", melodyColumns);
+  grid.style.setProperty("--grid-count", melodyColumns);
   grid.replaceChildren(el("span", "roll-label", ""));
   for (let col = 0; col < melodyColumns; col++)
     grid.append(
       el(
         "span",
         "roll-label beat",
-        col % 2
-          ? "+"
-          : `${Math.floor((startBeat + col / 2) / 4) + 1}.${((col / 2) % 4) + 1}`,
+        ((startBeat + col * melodyStep) / (4 / meterOf(project).denominator)) %
+          1 ===
+          0
+          ? positionLabel(startBeat + col * melodyStep, project)
+          : "+",
       ),
     );
   const rows = melodyRows(
@@ -381,14 +446,14 @@ function drawMelody(focusCell = null) {
       ),
     );
     for (let col = 0; col < melodyColumns; col++) {
-      const start = startBeat + col / 2;
+      const start = startBeat + col * melodyStep;
       const index = project.melody.findIndex(
         (n) =>
           n.pitch === pitch && start >= n.start && start < n.start + n.beats,
       );
       const b = button(
         "",
-        `${pitchName(pitch)}${Math.floor(pitch / 12) - 1}, beat ${start + 1}${index >= 0 ? ", edit note" : ", add note"}`,
+        `${pitchName(pitch)}${Math.floor(pitch / 12) - 1}, bar:beat ${positionLabel(start, project)}${index >= 0 ? ", edit note" : ", add note"}`,
         () => {
           if (suppressMelodyClick) return;
           if (index >= 0) {
@@ -397,7 +462,19 @@ function drawMelody(focusCell = null) {
           } else {
             if (project.melody.length >= 512)
               return report("Maximum 512 melody notes.", true);
-            const beats = Math.min(+$("note-duration").value, 128 - start);
+            const beats = NOTE_LENGTHS.filter(
+              (length) =>
+                length <=
+                Math.min(
+                  +$("note-duration").value,
+                  timelineEnd(project) - start,
+                ),
+            ).at(-1);
+            if (project.melodyBars && start + beats > melodyLength(project))
+              return report(
+                "Add a bar or choose a longer loop before adding a note here.",
+                true,
+              );
             if (
               project.melody.some(
                 (n) =>
@@ -427,7 +504,8 @@ function drawMelody(focusCell = null) {
       b.tabIndex = -1;
       if ([1, 3, 6, 8, 10].includes(pitch % 12)) b.classList.add("sharp");
       if (inScale.includes(pitch % 12)) b.classList.add("scale-tone");
-      if (col % 8 === 0) b.classList.add("bar-start");
+      if (start % barBeats(project) === 0) b.classList.add("bar-start");
+      if (start >= timelineEnd(project)) b.disabled = true;
       if (index >= 0) {
         b.classList.add(
           project.melody[index].start === start ? "on" : "continued",
@@ -436,7 +514,7 @@ function drawMelody(focusCell = null) {
         if (project.melody[index].start === start)
           b.append(el("span", "roll-note-name", pitchName(pitch)));
         if (
-          start + 0.5 ===
+          start + melodyStep >=
           project.melody[index].start + project.melody[index].beats
         ) {
           b.classList.add("note-end");
@@ -464,19 +542,34 @@ function drawMelody(focusCell = null) {
   $("note-editor").hidden = !note;
   if (note)
     $("selected-note").textContent =
-      `${pitchName(note.pitch)}${Math.floor(note.pitch / 12) - 1} · beat ${note.start + 1} · ${note.beats} beat${note.beats === 1 ? "" : "s"}`;
+      `${pitchName(note.pitch)}${Math.floor(note.pitch / 12) - 1} · bar:beat ${positionLabel(note.start, project)} · ${note.beats} quarter beats`;
   $("melody-count").textContent =
-    `${project.melody.length} note${project.melody.length === 1 ? "" : "s"} · 4/4 time`;
+    `${project.melody.length} / 512 notes · ${meterOf(project).numerator}/${meterOf(project).denominator} time`;
   const outside = project.melody.filter(
     (n) =>
       !rows.includes(n.pitch) ||
       n.start + n.beats <= startBeat ||
-      n.start >= startBeat + melodyColumns / 2,
+      n.start >= startBeat + melodySpan,
   ).length;
   $("melody-view-hint").textContent =
-    `${KEYS[project.key]} ${project.mode} · bar${compact ? "" : "s"} ${$("melody-page").selectedOptions[0]?.textContent || "1"} · + marks a half beat${outside ? ` · ${outside} note${outside === 1 ? "" : "s"} in other bars or octaves` : ""}`;
+    `${KEYS[project.key]} ${project.mode} · bar${compact ? "" : "s"} ${$("melody-page").selectedOptions[0]?.textContent || "1"} · grid ${melodyStep} quarter beats${outside ? ` · ${outside} note${outside === 1 ? "" : "s"} in other bars or octaves` : ""}`;
   $("melody-deselect").disabled = !note;
+  updateLoopSummary();
   updateTransport();
+}
+function updateLoopSummary() {
+  const page = +$("melody-page").value || 0;
+  const phrase = melodyLength(project) || barBeats(project);
+  const chordLength = project.progression.reduce((sum, c) => sum + c.beats, 0);
+  $("loop-summary").textContent =
+    `Melody: ${phrase / barBeats(project)}-bar loop · Chords: ${Number((chordLength / barBeats(project)).toFixed(3))}-bar loop. Both follow the same tempo (quarter-note BPM). Add bars for a longer melody; up to 512 notes.`;
+  $("melody-prev").disabled = page === 0;
+  $("melody-next").disabled = page >= $("melody-page").options.length - 1;
+  $("melody-add-bar").disabled = phrase + barBeats(project) > MAX_BEATS;
+  $("melody-repeat").disabled =
+    !project.melody.length ||
+    phrase * 2 > MAX_BEATS ||
+    project.melody.length * 2 > 512;
 }
 function cancelMelodyGesture() {
   gesture = null;
@@ -523,7 +616,9 @@ $("melody-grid").addEventListener("pointermove", (e) => {
   }
   const patch = gesture.resize
     ? {
-        beats: resizeLength(+cell.dataset.start + 0.5 - gesture.original.start),
+        beats: resizeLength(
+          +cell.dataset.start + melodyStep - gesture.original.start,
+        ),
       }
     : {
         start: gesture.original.start + +cell.dataset.start - gesture.grabStart,
@@ -533,6 +628,13 @@ $("melody-grid").addEventListener("pointermove", (e) => {
   let error = "";
   try {
     changeNote(project.melody, gesture.index, candidate);
+    if (candidate.start + candidate.beats > timelineEnd(project))
+      throw new Error("Keep the note inside the last complete bar.");
+    if (
+      project.melodyBars &&
+      candidate.start + candidate.beats > melodyLength(project)
+    )
+      throw new Error("Extend the loop before moving a note beyond it.");
     gesture.candidate = candidate;
   } catch (e) {
     error = e.message;
@@ -583,7 +685,7 @@ $("melody-grid").addEventListener("pointerup", (e) => {
     pitch: finished.candidate.pitch,
     start: Math.max(
       finished.candidate.start,
-      (+$("melody-page").value * melodyColumns) / 2,
+      +$("melody-page").value * melodySpan,
     ),
   });
 });
@@ -693,6 +795,14 @@ function renderProject() {
   $("tempo").value = p.tempo;
   $("instrument").value = audio.instrument = p.instrument;
   showSoundStatus();
+  $("meter-numerator").value = meterOf(p).numerator;
+  $("meter-denominator").value = meterOf(p).denominator;
+  // Reveal fine-grid notes when opening a project or restoring history.
+  if (p.melody.some((n) => n.start % 0.25 || n.beats < 0.25))
+    $("melody-step").value = "0.125";
+  else if (p.melody.some((n) => n.start % 0.5 || n.beats < 0.5))
+    $("melody-step").value = "0.25";
+  drawMelodyPages(+$("melody-page").value * melodySpan);
   drawPalette();
   drawSequence();
   inspect(p.progression[0] || { degree: 0, seventh: false, inversion: 0 });
@@ -712,7 +822,7 @@ function load(p, unsaved = false) {
       6,
       Math.max(2, Math.floor(p.melody[0].pitch / 12) - 1),
     );
-    $("melody-page").value = melodyPage(p.melody[0].start, melodyColumns);
+    drawMelodyPages(p.melody[0].start);
   }
   renderProject();
   report(`Opened ${p.name}.`);
@@ -729,22 +839,49 @@ function download(bytes, type, extension) {
 }
 KEYS.forEach((name, index) => $("key").add(new Option(name, index)));
 function drawMelodyPages(beat = 0) {
+  const required = [0.5, 0.25, 0.125].find((step) =>
+    project.melody.every(
+      (note) => note.start % step === 0 && note.beats >= step,
+    ),
+  );
+  const layout = gridLayout(
+    project,
+    compact,
+    Math.min(+$("melody-step").value, required),
+  );
+  $("melody-step").value = layout.step;
+  melodyColumns = layout.columns;
+  melodyStep = layout.step;
+  melodySpan = layout.span;
   $("melody-page").replaceChildren();
-  for (let page = 0; page < 256 / melodyColumns; page++)
-    $("melody-page").add(
-      new Option(
-        compact ? String(page + 1) : `${page * 2 + 1}–${page * 2 + 2}`,
-        page,
-      ),
+  for (let page = 0; page < layout.pages; page++) {
+    const start = page * melodySpan,
+      end = Math.min(timelineEnd(project), start + melodySpan);
+    const bar = barBeats(project);
+    const label =
+      start % bar === 0 && end % bar === 0
+        ? end - start === bar
+          ? String(start / bar + 1)
+          : `${start / bar + 1}–${end / bar}`
+        : `${positionLabel(start, project)}–${positionLabel(end - melodyStep, project)}`;
+    $("melody-page").add(new Option(label, page));
+  }
+  $("melody-page").value = Math.min(
+    layout.pages - 1,
+    Math.max(0, Math.floor(beat / melodySpan)),
+  );
+  $("melody-bars").replaceChildren(new Option("Auto · whole bars", 0));
+  for (let bars = 1; bars <= Math.floor(MAX_BEATS / barBeats(project)); bars++)
+    $("melody-bars").add(
+      new Option(`${bars} bar${bars === 1 ? "" : "s"}`, bars),
     );
-  $("melody-page").value = melodyPage(beat, melodyColumns);
+  $("melody-bars").value = project.melodyBars || 0;
 }
 drawMelodyPages();
 phoneLayout.addEventListener("change", () => {
-  const beat = (+$("melody-page").value * melodyColumns) / 2;
+  const beat = +$("melody-page").value * melodySpan;
   cancelMelodyGesture();
   compact = phoneLayout.matches;
-  melodyColumns = compact ? 8 : 16;
   drawMelodyPages(beat);
   drawMelody();
 });
@@ -920,7 +1057,7 @@ $("preset").onchange = () => {
   }[type];
   project.progression = degrees.map((degree) => ({
     degree,
-    beats: 4,
+    beats: barBeats(project),
     inversion: 0,
     seventh: type === "jazz",
   }));
@@ -977,6 +1114,99 @@ $("sustain").onclick = () => {
   piano.refreshSustain();
 };
 $("melody-page").onchange = () => drawMelody();
+$("melody-step").onchange = () => {
+  cancelMelodyGesture();
+  drawMelodyPages(+$("melody-page").value * melodySpan);
+  drawMelody();
+};
+for (const [id, direction] of [
+  ["melody-prev", -1],
+  ["melody-next", 1],
+])
+  $(id).onclick = () => {
+    cancelMelodyGesture();
+    $("melody-page").selectedIndex += direction;
+    drawMelody();
+  };
+$("melody-bars").onchange = () => {
+  try {
+    const next = validateProject({
+      ...project,
+      melodyBars: +$("melody-bars").value,
+    });
+    edit();
+    project = next;
+    changed("Melody loop length updated. Existing notes are kept.");
+  } catch (e) {
+    $("melody-bars").value = project.melodyBars || 0;
+    report(e.message, true);
+  }
+  drawMelody();
+};
+$("melody-add-bar").onclick = () => {
+  const previous = melodyLength(project) || barBeats(project);
+  if (previous + barBeats(project) > MAX_BEATS) return;
+  edit();
+  project.melodyBars = previous / barBeats(project) + 1;
+  drawMelodyPages(previous);
+  changed("Added a bar. Add more notes in the new bar; Undo is available.");
+  drawMelody();
+};
+$("melody-repeat").onclick = () => {
+  try {
+    const previous = melodyLength(project),
+      next = repeatPhrase(project);
+    edit();
+    project = next;
+    selectedNote = -1;
+    drawMelodyPages(previous);
+    changed("Repeated the phrase with editable copies of its notes.");
+    drawMelody();
+  } catch (e) {
+    report(e.message, true);
+  }
+};
+$("chords-to-bars").onclick = () => {
+  edit();
+  project.progression.forEach((chord) => {
+    chord.beats = barBeats(project);
+  });
+  changed(
+    "Each chord now lasts one bar in the selected meter. Undo is available.",
+  );
+  drawSequence();
+  drawMelody();
+};
+function changeMeter() {
+  try {
+    const meter = {
+      numerator: +$("meter-numerator").value,
+      denominator: +$("meter-denominator").value,
+    };
+    const candidate = { ...project, meter, melodyBars: 0 };
+    if (project.melodyBars)
+      candidate.melodyBars = Math.max(
+        project.melodyBars,
+        Math.ceil(
+          Math.max(0, ...project.melody.map((n) => n.start + n.beats)) /
+            barBeats(candidate),
+        ),
+      );
+    const next = validateProject(candidate);
+    edit();
+    project = next;
+    changed(
+      "Time signature updated. Note timing is preserved; use One bar per chord to fit the harmony.",
+    );
+    renderProject();
+  } catch (e) {
+    $("meter-numerator").value = meterOf(project).numerator;
+    $("meter-denominator").value = meterOf(project).denominator;
+    report(e.message, true);
+  }
+}
+$("meter-numerator").onchange = changeMeter;
+$("meter-denominator").onchange = changeMeter;
 for (const id of ["melody-octave", "melody-notes"])
   $(id).onchange = () => {
     cancelMelodyGesture();
@@ -999,7 +1229,8 @@ $("note-duration").onchange = () => {
   if (!note) return;
   const beats = +$("note-duration").value;
   if (
-    note.start + beats > 128 ||
+    note.start + beats > timelineEnd(project) ||
+    (project.melodyBars && note.start + beats > melodyLength(project)) ||
     project.melody.some(
       (n, i) =>
         i !== selectedNote &&
@@ -1026,14 +1257,16 @@ document.querySelectorAll("[data-note-action]").forEach(
       if (!note) return;
       const action = b.dataset.noteAction,
         next = { ...note };
-      if (action === "earlier") next.start -= 0.5;
-      if (action === "later") next.start += 0.5;
+      if (action === "earlier") next.start -= melodyStep;
+      if (action === "later") next.start += melodyStep;
       if (action === "up") next.pitch++;
       if (action === "down") next.pitch--;
       if (
         action !== "delete" &&
         (next.start < 0 ||
-          next.start + next.beats > 128 ||
+          next.start + next.beats > timelineEnd(project) ||
+          (project.melodyBars &&
+            next.start + next.beats > melodyLength(project)) ||
           next.pitch < 36 ||
           next.pitch > 95 ||
           project.melody.some(
@@ -1054,7 +1287,7 @@ document.querySelectorAll("[data-note-action]").forEach(
         selectedNote = -1;
       } else {
         project.melody[selectedNote] = next;
-        $("melody-page").value = Math.floor(next.start / (melodyColumns / 2));
+        $("melody-page").value = Math.floor(next.start / melodySpan);
         $("melody-octave").value = Math.min(
           6,
           Math.max(2, Math.floor(next.pitch / 12) - 1),

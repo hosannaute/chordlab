@@ -141,6 +141,95 @@ function fakeAudio() {
     },
   };
 }
+test("melody and chords keep independent loop periods on one clock in custom meters", async () => {
+  for (const meter of [
+    { numerator: 3, denominator: 4 },
+    { numerator: 6, denominator: 8 },
+    { numerator: 7, denominator: 8 },
+    { numerator: 5, denominator: 16 },
+    { numerator: 3, denominator: 32 },
+  ]) {
+    const audio = fakeAudio(),
+      frames = [],
+      playback = new Playback(audio, (...frame) => frames.push(frame));
+    const project = newProject(),
+      bar = (meter.numerator * 4) / meter.denominator;
+    project.tempo = 120;
+    project.meter = meter;
+    project.progression = [
+      { degree: 0, beats: bar * 4, inversion: 0, seventh: false },
+    ];
+    project.melody = [{ pitch: 80, start: 0, beats: 0.125 }];
+    await playback.play(project);
+    clearInterval(playback.timer);
+    for (
+      let tick = 1;
+      tick <= Math.ceil((bar * 4 * 0.5 + 0.05) / 0.025);
+      tick++
+    ) {
+      audio.context.currentTime = tick * 0.025;
+      playback.tick();
+    }
+    const notes = audio.calls.filter((call) => call[0] === 80);
+    assert.equal(notes.length, 5);
+    notes.forEach((call, index) =>
+      assert.ok(Math.abs(call[1] - (0.04 + index * bar * 0.5)) < 1e-8),
+    );
+    assert.equal(audio.calls.filter((call) => call[0] !== 80).length, 6);
+    assert.ok(frames.every((frame) => frame[2] >= 0 && frame[2] < bar));
+    playback.stop();
+  }
+});
+test("unordered melody edits schedule chronologically and longer melody keeps chords repeating", async () => {
+  const audio = fakeAudio(),
+    playback = new Playback(audio, () => {}),
+    project = newProject();
+  project.tempo = 120;
+  project.meter = { numerator: 1, denominator: 4 };
+  project.melodyBars = 4;
+  project.progression = [{ degree: 0, beats: 1, inversion: 0, seventh: false }];
+  project.melody = [
+    { pitch: 82, start: 2, beats: 1 },
+    { pitch: 80, start: 0, beats: 1 },
+  ];
+  await playback.play(project, false);
+  clearInterval(playback.timer);
+  for (let tick = 1; tick <= 120; tick++) {
+    audio.context.currentTime = tick * 0.025;
+    playback.tick();
+  }
+  assert.deepEqual(
+    audio.calls.filter((call) => call[0] >= 80).map((call) => call[0]),
+    [80, 82],
+  );
+  assert.equal(audio.calls.filter((call) => call[0] < 80).length, 12);
+  assert.equal(playback.running, false);
+});
+test("disabling loop during a later pass finishes that pass and stop cancels both tracks", async () => {
+  const audio = fakeAudio(),
+    playback = new Playback(audio, () => {}),
+    p = newProject();
+  p.tempo = 120;
+  p.meter = { numerator: 1, denominator: 4 };
+  p.progression = [{ degree: 0, beats: 2, inversion: 0, seventh: false }];
+  p.melody = [{ pitch: 80, start: 0, beats: 0.5 }];
+  await playback.play(p);
+  clearInterval(playback.timer);
+  for (let tick = 1; tick <= 44; tick++) {
+    audio.context.currentTime = tick * 0.05;
+    playback.tick();
+  }
+  playback.loop = false;
+  playback.tick();
+  assert.equal(playback.endBeat, 6);
+  assert.equal(playback.running, true);
+  audio.context.currentTime = 4;
+  playback.tick();
+  assert.equal(playback.running, false);
+  const count = audio.calls.length;
+  playback.tick();
+  assert.equal(audio.calls.length, count);
+});
 test("sampled piano uses buffer voices with correct pitch, release and cleanup", () => {
   const audio = new AudioEngine();
   audio.context = new Context();
@@ -172,6 +261,7 @@ test("default transport repeats both chords and melody through several complete 
     ),
     project = newProject();
   project.tempo = 120;
+  project.meter = { numerator: 1, denominator: 4 };
   project.progression = [{ degree: 0, beats: 1, seventh: false, inversion: 0 }];
   project.melody = [{ pitch: 72, start: 0, beats: 1 }];
   await playback.play(project);
@@ -198,6 +288,7 @@ test("melody-only playback also loops by default", async () => {
     ),
     project = newProject();
   project.tempo = 120;
+  project.meter = { numerator: 1, denominator: 4 };
   project.melody = [{ pitch: 72, start: 0, beats: 1 }];
   await playback.play(project, undefined, "melody");
   clearInterval(playback.timer);

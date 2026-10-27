@@ -1,5 +1,18 @@
 # Verification record
 
+## Meter and continuous melody update (2.3)
+
+Verified on 27 October 2026 with Node 24 on Windows and the Chromium-based in-app browser:
+
+- **44 unit tests passed** and the production build passed. Meter/grid tests cover every supported numerator 1–32 with denominators 1, 2, 4, 8, 16 and 32. Scheduler tests check exact independent phrase onsets in 3/4, 6/8, 7/8, 5/16 and 3/32, sorted notes after out-of-order editing, a longer melody over repeating chords, loop-off during a later pass, and cancellation. MIDI tests decode meter metadata, repeated short-phrase note ticks, arrangement endings and the bounded-export rejection.
+- Through the actual app controls, created **16 melody notes in 7/8**, repeated them into **32 editable notes**, and undid the repeat. A request to shorten the loop below the last note was rejected without losing notes. Save/reload preserved meter, all sixteen notes, 120 BPM and a fine enough grid to edit them.
+- Actual composition playback stayed running beyond the original pass. The melody playhead continued using its two-bar loop while the four-bar chord progression advanced independently. In a real phone-width iframe, melody-only playback automatically followed into the second bar and scrolled the playhead horizontally. Stop reset playback.
+- Add bar selected the new bar and set an explicit three-bar phrase; Undo restored the original automatic two-bar melody. Previous/Next remained functional. At 360 and 390 pixel iframe widths, document scroll width equaled body width (345 and 375 after scrollbar). The fine melody grid scrolled inside its own viewport (494 pixels of content within 281 or 311 pixels) rather than widening the document.
+- The compiled production preview additionally created a sixteen-note **6/8** phrase with a two-bar explicit loop, loaded the real Grand Piano recordings and started combined playback.
+- The phone automation session logged the same injected MutationObserver error seen during prior focused-grid replacement checks. No application source uses MutationObserver; this session is therefore not described as an error-free console run.
+
+These checks do not replace physical phone, Safari/iOS, speaker/latency or assistive-technology testing. Existing audio-engine DSP evidence is retained below; this update changes timeline scheduling and editing, not the sampled/synthesized voice graphs. See [TIMING.md](TIMING.md) for quarter-note tempo semantics and the supported meter/timeline limits.
+
 ## Grand Piano and looping update (2.2)
 
 Verified on 27 October 2026 with Node 24 on Windows and the Chromium-based in-app browser:
