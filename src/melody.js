@@ -1,5 +1,7 @@
 import { scale } from "./theory.js";
-export const NOTE_LENGTHS = [0.5, 1, 2, 4];
+import { MIN_STEP, NOTE_LENGTHS } from "./timing.js";
+import { melodyLength, barBeats, MAX_BEATS } from "./timing.js";
+export { NOTE_LENGTHS } from "./timing.js";
 export function resizeLength(beats) {
   return NOTE_LENGTHS.reduce((best, value) =>
     Math.abs(value - beats) <= Math.abs(best - beats) ? value : best,
@@ -14,7 +16,7 @@ export function changeNote(notes, index, patch) {
     note.pitch > 95 ||
     !Number.isFinite(note.start) ||
     note.start < 0 ||
-    (note.start * 2) % 1 ||
+    (note.start / MIN_STEP) % 1 ||
     !NOTE_LENGTHS.includes(note.beats) ||
     note.start + note.beats > 128
   )
@@ -45,9 +47,22 @@ export function melodyRows(root, mode, octave, scaleOnly, notes = []) {
     )
     .reverse();
 }
-export function melodyPage(beat, columns) {
-  return Math.min(
-    256 / columns - 1,
-    Math.max(0, Math.floor((beat * 2) / columns)),
-  );
+export function repeatPhrase(project) {
+  const length = melodyLength(project);
+  if (
+    !project.melody.length ||
+    length * 2 > MAX_BEATS ||
+    project.melody.length * 2 > 512
+  )
+    throw new Error(
+      "The repeated phrase exceeds the timeline or 512-note limit.",
+    );
+  return {
+    ...project,
+    melodyBars: (length * 2) / barBeats(project),
+    melody: [
+      ...project.melody.map((n) => ({ ...n })),
+      ...project.melody.map((n) => ({ ...n, start: n.start + length })),
+    ],
+  };
 }

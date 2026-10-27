@@ -1019,6 +1019,49 @@ footer a {
   }
 }
 /* Composition editing and compact melody view */
+.meter-setting input {
+  width: 64px;
+}
+.meter-setting select {
+  width: 64px;
+}
+.transport {
+  flex-wrap: wrap;
+}
+.melody-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  padding: 3px;
+}
+.studio-grid > .panel {
+  min-width: 0;
+}
+.melody-toolbar > .row {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.melody-scroll .melody-grid {
+  min-width: calc(40px + var(--grid-count, 16) * 32px);
+}
+.phrase-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.phrase-actions button {
+  min-height: 44px;
+  font-size: 12px;
+}
+.follow-control {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 8px;
+}
+.follow-control input {
+  width: 18px;
+  height: 18px;
+}
 .history-actions {
   display: flex;
   gap: 6px;

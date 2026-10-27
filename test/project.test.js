@@ -89,7 +89,7 @@ test("composition timing accounts for durations, melody and inversions", () => {
   ];
   p.melody = [{ pitch: 72, start: 3.5, beats: 1 }];
   const c = composition(p);
-  assert.equal(c.beats, 4.5);
+  assert.equal(c.beats, 8);
   assert.equal(c.events.length, 8);
   assert.deepEqual(
     c.events.slice(0, 3).map((e) => e.pitch),

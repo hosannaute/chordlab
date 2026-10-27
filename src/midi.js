@@ -1,4 +1,5 @@
 import { composition, validateProject } from "./project.js";
+import { meterOf } from "./timing.js";
 const text = (value) => [...new TextEncoder().encode(value)];
 const word = (n) => [
   (n >>> 24) & 255,
@@ -28,7 +29,35 @@ function track(name, events, end) {
 }
 export function exportMidi(project) {
   validateProject(project);
-  const { events, beats } = composition(project);
+  const { tracks: phrases, beats } = composition(project);
+  const eventCount = phrases.reduce(
+    (sum, phrase) =>
+      sum + Math.ceil(beats / phrase.beats) * phrase.events.length,
+    0,
+  );
+  if (eventCount > 200000)
+    throw new Error(
+      "This arrangement is too large for MIDI export. Shorten the chord progression or lengthen the melody phrase.",
+    );
+  const events = phrases.flatMap((phrase) => {
+    const repeated = [];
+    for (let offset = 0; offset < beats; offset += phrase.beats)
+      for (const event of phrase.events) {
+        const start = offset + event.start;
+        if (start < beats)
+          repeated.push({
+            ...event,
+            start,
+            beats: Math.min(
+              event.beats,
+              beats - start,
+              phrase.beats - event.start,
+            ),
+          });
+      }
+    return repeated;
+  });
+  const meter = meterOf(project);
   const tempo = Math.round(60000000 / project.tempo);
   const end = Math.round(beats * 480);
   const tracks = [
@@ -40,7 +69,19 @@ export function exportMidi(project) {
           priority: 0,
           bytes: [255, 81, 3, tempo >>> 16, (tempo >>> 8) & 255, tempo & 255],
         },
-        { tick: 0, priority: 1, bytes: [255, 88, 4, 4, 2, 24, 8] },
+        {
+          tick: 0,
+          priority: 1,
+          bytes: [
+            255,
+            88,
+            4,
+            meter.numerator,
+            Math.log2(meter.denominator),
+            24,
+            8,
+          ],
+        },
       ],
       end,
     ),

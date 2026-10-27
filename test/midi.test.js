@@ -57,6 +57,7 @@ test("VLQ handles boundaries and rejects invalid deltas", () => {
 test("format-1 MIDI contains exact tempo, chord inversion, duration and melody channel", () => {
   const p = newProject();
   p.tempo = 120;
+  p.meter = { numerator: 2, denominator: 4 };
   p.progression = [{ degree: 0, beats: 2, inversion: 1, seventh: false }];
   p.melody = [{ pitch: 72, start: 0.5, beats: 1 }];
   const tracks = decode(exportMidi(p));
@@ -87,4 +88,49 @@ test("adjacent notes end before retrigger; overlaps merge without early cutoff",
     track.filter((e) => e.tick === 1440 && e.status).map((e) => e.status),
     [129, 145],
   );
+});
+test("MIDI exports the selected meter and repeats a short melody across the chord pass", () => {
+  for (const [numerator, denominator] of [
+    [3, 4],
+    [6, 8],
+    [7, 8],
+    [5, 16],
+    [3, 32],
+  ]) {
+    const p = newProject(),
+      bar = (numerator * 4) / denominator;
+    p.meter = { numerator, denominator };
+    p.progression = [
+      { degree: 0, beats: bar * 4, inversion: 0, seventh: false },
+    ];
+    p.melody = [{ pitch: 80, start: 0, beats: 0.125 }];
+    const tracks = decode(exportMidi(p));
+    assert.deepEqual(tracks[0].find((e) => e.type === 88).bytes, [
+      numerator,
+      Math.log2(denominator),
+      24,
+      8,
+    ]);
+    assert.deepEqual(
+      tracks[2].filter((e) => e.status === 145).map((e) => e.tick),
+      [0, bar * 480, bar * 960, bar * 1440],
+    );
+    assert.ok(tracks.every((track) => track.at(-1).tick === bar * 4 * 480));
+  }
+});
+test("extreme mismatched phrase lengths cannot allocate an unbounded MIDI arrangement", () => {
+  const p = newProject();
+  p.meter = { numerator: 1, denominator: 32 };
+  p.progression = Array.from({ length: 128 }, () => ({
+    degree: 0,
+    beats: 128,
+    inversion: 0,
+    seventh: false,
+  }));
+  p.melody = Array.from({ length: 512 }, (_, i) => ({
+    pitch: 36 + (i % 60),
+    start: 0,
+    beats: 0.125,
+  }));
+  assert.throws(() => exportMidi(p), /too large/);
 });

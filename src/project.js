@@ -1,4 +1,11 @@
 import { diatonicChord, mod } from "./theory.js";
+import {
+  DENOMINATORS,
+  MIN_STEP,
+  NOTE_LENGTHS,
+  MAX_BEATS,
+  melodyLength,
+} from "./timing.js";
 export const INSTRUMENTS = [
   "grand-piano",
   "soft-piano",
@@ -15,6 +22,8 @@ export const newProject = () => ({
   mode: "major",
   tempo: 100,
   instrument: "grand-piano",
+  meter: { numerator: 4, denominator: 4 },
+  melodyBars: 0,
   progression: [0, 4, 5, 3].map((degree) => ({
     degree,
     beats: 4,
@@ -39,6 +48,25 @@ export function validateProject(p) {
     !INSTRUMENTS.includes(p.instrument)
   )
     throw new Error("This is not a compatible CHORDLAB project.");
+  const meter =
+    p.meter === undefined ? { numerator: 4, denominator: 4 } : p.meter;
+  if (
+    !meter ||
+    !integer(meter.numerator, 1, 32) ||
+    !DENOMINATORS.includes(meter.denominator)
+  )
+    throw new Error(
+      "Choose a time signature from 1–32 over 1, 2, 4, 8, 16 or 32.",
+    );
+  const melodyBars = p.melodyBars === undefined ? 0 : p.melodyBars;
+  if (
+    !integer(
+      melodyBars,
+      0,
+      Math.floor(MAX_BEATS / ((meter.numerator * 4) / meter.denominator)),
+    )
+  )
+    throw new Error("Melody loop length exceeds the timeline.");
   if (
     !Array.isArray(p.progression) ||
     p.progression.length > 128 ||
@@ -50,7 +78,8 @@ export function validateProject(p) {
     if (
       !c ||
       !integer(c.degree, 0, 6) ||
-      ![0.5, 1, 2, 4, 8].includes(c.beats) ||
+      !number(c.beats, MIN_STEP, MAX_BEATS) ||
+      (c.beats / MIN_STEP) % 1 ||
       typeof c.seventh !== "boolean" ||
       !integer(c.inversion, 0, c.seventh ? 3 : 2)
     )
@@ -66,14 +95,17 @@ export function validateProject(p) {
     if (
       !n ||
       !integer(n.pitch, 36, 95) ||
-      !number(n.start, 0, 127.5) ||
-      (n.start * 2) % 1 ||
-      ![0.5, 1, 2, 4].includes(n.beats) ||
+      !number(n.start, 0, MAX_BEATS - MIN_STEP) ||
+      (n.start / MIN_STEP) % 1 ||
+      !NOTE_LENGTHS.includes(n.beats) ||
       n.start + n.beats > 128
     )
       throw new Error("Invalid melody note in project.");
     return { pitch: n.pitch, start: n.start, beats: n.beats };
   });
+  const phrase = melodyLength({ meter, melodyBars, melody });
+  if (phrase > MAX_BEATS || melody.some((n) => n.start + n.beats > phrase))
+    throw new Error("The melody loop must contain every melody note.");
   const id =
     typeof p.id === "string" && /^[a-zA-Z0-9-]{1,80}$/.test(p.id)
       ? p.id
@@ -86,6 +118,8 @@ export function validateProject(p) {
     mode: p.mode,
     tempo: p.tempo,
     instrument: p.instrument,
+    meter: { numerator: meter.numerator, denominator: meter.denominator },
+    melodyBars,
     progression,
     melody,
   };
@@ -155,10 +189,22 @@ export function composition(project, part = "all") {
   });
   if (part !== "chords")
     project.melody.forEach((n) => events.push({ ...n, track: "melody" }));
-  const total = Math.max(
-    part === "melody" ? 0 : cursor,
-    ...events.map((e) => e.start + e.beats),
-    0,
-  );
-  return { events: events.sort((a, b) => a.start - b.start), beats: total };
+  const tracks = [
+    {
+      name: "chords",
+      beats: cursor,
+      events: events.filter((e) => e.track === "chords"),
+    },
+    {
+      name: "melody",
+      beats: melodyLength(project),
+      events: events.filter((e) => e.track === "melody"),
+    },
+  ].filter((t) => t.events.length && t.beats);
+  tracks.forEach((track) => track.events.sort((a, b) => a.start - b.start));
+  return {
+    events: events.sort((a, b) => a.start - b.start),
+    beats: Math.max(0, ...tracks.map((t) => t.beats)),
+    tracks,
+  };
 }

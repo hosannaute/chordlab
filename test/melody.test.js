@@ -1,11 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  changeNote,
-  melodyRows,
-  melodyPage,
-  resizeLength,
-} from "../src/melody.js";
+import { changeNote, melodyRows, resizeLength } from "../src/melody.js";
+import { gridLayout } from "../src/timing.js";
 test("drag editing respects timeline, pitch, beat snapping and collision boundaries", () => {
   const notes = [
     { pitch: 60, start: 0, beats: 1 },
@@ -15,7 +11,7 @@ test("drag editing respects timeline, pitch, beat snapping and collision boundar
   for (const patch of [
     { start: 1.5 },
     { start: -0.5 },
-    { start: 0.25 },
+    { start: 0.1 },
     { pitch: 96 },
     { start: 127.5, beats: 1 },
   ])
@@ -49,7 +45,9 @@ test("scale view remains compact and never hides an existing chromatic note with
   assert.ok(melodyRows(0, "major", 6, false).every((n) => n <= 95));
 });
 test("responsive page mapping preserves the visible beat and clamps at timeline end", () => {
-  assert.equal(melodyPage(8, 8), 2);
-  assert.equal(melodyPage(8, 16), 1);
-  assert.equal(melodyPage(128, 8), 31);
+  const phone = gridLayout({}, true),
+    desktop = gridLayout({}, false);
+  assert.equal(Math.floor(8 / phone.span), 2);
+  assert.equal(Math.floor(8 / desktop.span), 1);
+  assert.equal(phone.pages - 1, 31);
 });
