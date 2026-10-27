@@ -21,6 +21,7 @@ export const INTERVALS = {
   min7: [0, 3, 7, 10],
   dom7: [0, 4, 7, 10],
   halfdim7: [0, 3, 6, 10],
+  dim7: [0, 3, 6, 9],
 };
 const SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10] };
 const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
@@ -38,6 +39,7 @@ const SUFFIX = {
   min7: "m7",
   dom7: "7",
   halfdim7: "ø7",
+  dim7: "°7",
 };
 export const mod = (n, m = 12) => ((n % m) + m) % m;
 export const pitchName = (note) => KEYS[mod(note)];
@@ -71,7 +73,8 @@ export function invert(notes, inversion = 0) {
   ];
 }
 export function buildChord(root, quality, inversion = 0) {
-  if (!INTERVALS[quality]) throw new Error("Unknown chord quality");
+  if (!Object.hasOwn(INTERVALS, quality))
+    throw new Error("Unknown chord quality");
   return invert(
     INTERVALS[quality].map((n) => root + n),
     inversion,
@@ -118,6 +121,8 @@ export function diatonicChord(
   };
 }
 export function describeChord(chord, mode) {
+  if (chord.chromatic)
+    return "Chromatic / borrowed chord · Adds color or tension beyond the home scale. Its role depends on the chords around it; try resolving it by a small voice movement.";
   const d = chord.degree;
   if (d === 0)
     return "Tonic · Your home chord. It establishes the key and gives a sense of arrival.";
@@ -132,4 +137,67 @@ export function describeChord(chord, mode) {
       ? "Leading-tone chord · Its diminished fifth creates tension that often resolves to the tonic."
       : "Subtonic · Sits a whole step below home and gives natural minor its open, modal sound.";
   return "Color chord · Shares notes with nearby chords and offers a softer change of direction.";
+}
+export function customChord(
+  root,
+  quality,
+  inversion = 0,
+  rootName = KEYS[root],
+) {
+  if (
+    !Number.isInteger(root) ||
+    root < 0 ||
+    root > 11 ||
+    !Object.hasOwn(INTERVALS, quality)
+  )
+    throw new Error("Invalid custom chord");
+  const first = LETTERS.indexOf(rootName[0]);
+  const names = INTERVALS[quality].map((interval, index) => {
+    const letter = (first + index * 2) % 7;
+    const alteration = mod(root + interval - NATURAL[letter] + 6) - 6;
+    return (
+      LETTERS[letter] +
+      (alteration > 0 ? "♯".repeat(alteration) : "♭".repeat(-alteration))
+    );
+  });
+  return {
+    name: rootName + SUFFIX[quality],
+    quality,
+    roman: "Chromatic",
+    chromatic: true,
+    notes: buildChord(48 + root, quality, inversion),
+    names,
+    intervals: [...INTERVALS[quality]],
+  };
+}
+export function resolveChord(project, chord) {
+  if (chord.type !== "custom")
+    return diatonicChord(
+      project.key,
+      project.mode,
+      chord.degree,
+      chord.seventh,
+      chord.inversion,
+    );
+  let rootName = KEYS[chord.root];
+  if (
+    Number.isInteger(chord.sourceKey) &&
+    ["major", "minor"].includes(chord.sourceMode)
+  ) {
+    const index = scale(chord.sourceKey, chord.sourceMode).indexOf(chord.root);
+    if (index >= 0)
+      rootName = scaleNames(chord.sourceKey, chord.sourceMode)[index];
+  }
+  const data = customChord(
+    chord.root,
+    chord.quality,
+    chord.inversion,
+    rootName,
+  );
+  const homeScale = scale(project.key, project.mode);
+  data.chromatic = data.notes.some((note) => !homeScale.includes(mod(note)));
+  data.roman = Number.isInteger(chord.sourceKey)
+    ? `From ${KEYS[chord.sourceKey]} ${chord.sourceMode}`
+    : "Custom";
+  return data;
 }

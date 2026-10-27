@@ -14,7 +14,11 @@ import { repeatPhrase } from "../src/melody.js";
 test("custom meters use quarter-note time and bounded pages, including odd and compound meters", () => {
   for (const denominator of DENOMINATORS)
     for (let numerator = 1; numerator <= 32; numerator++) {
-      const p = { ...newProject(), meter: { numerator, denominator } };
+      const p = {
+        ...newProject(),
+        melodyBars: 0,
+        meter: { numerator, denominator },
+      };
       assert.equal(barBeats(p), (numerator * 4) / denominator);
       assert.deepEqual(validateProject(p).meter, p.meter);
       for (const compact of [true, false]) {
@@ -30,6 +34,7 @@ test("custom meters use quarter-note time and bounded pages, including odd and c
 });
 test("automatic melody loops cover whole bars instead of waiting for longer chords", () => {
   const p = newProject();
+  p.melodyBars = 0;
   p.meter = { numerator: 7, denominator: 8 };
   p.melody = [{ pitch: 72, start: 0, beats: 0.5 }];
   const song = composition(p);
@@ -70,6 +75,7 @@ test("old version-2 projects default to 4/4 and automatic phrase length without 
 });
 test("more than eight notes and fine subdivisions survive save/import validation", () => {
   const p = newProject();
+  p.melodyBars = 1;
   p.melody = Array.from({ length: 16 }, (_, n) => ({
     pitch: 60 + (n % 7),
     start: n / 4,
@@ -85,6 +91,7 @@ test("more than eight notes and fine subdivisions survive save/import validation
   assert.equal(repeated.melody[16].start, 4);
   repeated.melody[0].pitch = 80;
   assert.equal(p.melody[0].pitch, 60);
+  p.melodyBars = 0;
   p.melody = Array.from({ length: 512 }, (_, n) => ({
     pitch: 60,
     start: n / 8,

@@ -7,6 +7,7 @@ import {
   describeChord,
   pitchName,
   buildChord,
+  resolveChord,
 } from "./theory.js";
 import { newProject, transposeProject, validateProject } from "./project.js";
 import {
@@ -36,6 +37,7 @@ import {
   MAX_BEATS,
   NOTE_LENGTHS,
   timelineEnd,
+  phraseBarLimit,
 } from "./timing.js";
 const $ = (id) => document.getElementById(id);
 const el = (tag, className, text) => {
@@ -182,13 +184,7 @@ function canLeave() {
   );
 }
 function chordData(c = selectedChord) {
-  return diatonicChord(
-    project.key,
-    project.mode,
-    c.degree,
-    c.seventh,
-    c.inversion,
-  );
+  return resolveChord(project, c);
 }
 async function hear(c = selectedChord) {
   const request = ++previewRequest,
@@ -221,6 +217,7 @@ function inspect(c) {
       min7: "minor seventh",
       dom7: "dominant seventh",
       halfdim7: "half-diminished seventh",
+      dim7: "diminished seventh",
     }[chord.quality] || chord.quality;
   $("chord-formula").textContent = chord.intervals.join(" · ");
   $("chord-function").textContent = describeChord(chord, project.mode);
@@ -233,14 +230,33 @@ function inspect(c) {
     .forEach((b, i) => b.classList.toggle("selected", i === c.degree));
 }
 function drawPalette() {
+  const borrowed = $("chord-source-key").value !== "";
+  const root = borrowed ? +$("chord-source-key").value : project.key;
+  const mode = borrowed ? $("chord-source-mode").value : project.mode;
+  $("chord-source-mode").disabled = !borrowed;
+  if (!borrowed) $("chord-source-mode").value = project.mode;
+  $("chord-palette-hint").textContent = borrowed
+    ? `Borrowing from ${KEYS[root]} ${mode}. Home key stays ${KEYS[project.key]} ${project.mode}.`
+    : `Home key: ${KEYS[project.key]} ${project.mode}. Choose another key to borrow its chords.`;
   $("palette").replaceChildren(
     ...Array.from({ length: 7 }, (_, degree) => {
-      const c = {
-          degree,
-          beats: barBeats(project),
-          inversion: 0,
-          seventh: $("sevenths").checked,
-        },
+      const source = diatonicChord(root, mode, degree, $("sevenths").checked);
+      const c = borrowed
+          ? {
+              type: "custom",
+              root: scale(root, mode)[degree],
+              quality: source.quality,
+              sourceKey: root,
+              sourceMode: mode,
+              beats: barBeats(project),
+              inversion: 0,
+            }
+          : {
+              degree,
+              beats: barBeats(project),
+              inversion: 0,
+              seventh: $("sevenths").checked,
+            },
         data = chordData(c);
       const b = button("", `Add ${data.name}, ${data.roman}`, () => {
         if (project.progression.length >= 128)
@@ -252,7 +268,7 @@ function drawPalette() {
         inspect(c);
         hear(c);
       });
-      b.append(el("strong", "", data.name), el("small", "", data.roman));
+      b.append(el("strong", "", data.name), el("small", "", source.roman));
       return b;
     }),
   );
@@ -322,7 +338,7 @@ function drawSequence(focusIndex = null, focusAction = null) {
         ),
         selectControl(
           `INVERSION ${i + 1}`,
-          Array.from({ length: c.seventh ? 4 : 3 }, (_, n) => [
+          Array.from({ length: data.notes.length }, (_, n) => [
             n,
             n ? `${n}${n === 1 ? "st" : n === 2 ? "nd" : "rd"}` : "Root",
           ]),
@@ -562,13 +578,14 @@ function updateLoopSummary() {
   const phrase = melodyLength(project) || barBeats(project);
   const chordLength = project.progression.reduce((sum, c) => sum + c.beats, 0);
   $("loop-summary").textContent =
-    `Melody: ${phrase / barBeats(project)}-bar loop · Chords: ${Number((chordLength / barBeats(project)).toFixed(3))}-bar loop. Both follow the same tempo (quarter-note BPM). Add bars for a longer melody; up to 512 notes.`;
+    `Melody: ${phrase / barBeats(project)}-bar loop · ${phraseBarLimit(project)}-bar phrase limit · Chords: ${Number((chordLength / barBeats(project)).toFixed(3))}-bar loop. Both follow the same tempo. Up to 512 melody notes.${phraseBarLimit(project) > 8 ? " Longer saved phrase preserved." : " No ninth bar."}`;
   $("melody-prev").disabled = page === 0;
   $("melody-next").disabled = page >= $("melody-page").options.length - 1;
-  $("melody-add-bar").disabled = phrase + barBeats(project) > MAX_BEATS;
+  $("melody-add-bar").disabled =
+    phrase + barBeats(project) > timelineEnd(project);
   $("melody-repeat").disabled =
     !project.melody.length ||
-    phrase * 2 > MAX_BEATS ||
+    phrase * 2 > timelineEnd(project) ||
     project.melody.length * 2 > 512;
 }
 function cancelMelodyGesture() {
@@ -838,6 +855,40 @@ function download(bytes, type, extension) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 KEYS.forEach((name, index) => $("key").add(new Option(name, index)));
+KEYS.forEach((name, index) => {
+  $("chord-source-key").add(new Option(name, index));
+  $("custom-root").add(new Option(name, index));
+});
+for (const id of ["chord-source-key", "chord-source-mode"])
+  $(id).onchange = drawPalette;
+function selectedCustomChord() {
+  return {
+    type: "custom",
+    root: +$("custom-root").value,
+    quality: $("custom-quality").value,
+    inversion: 0,
+    beats:
+      $("custom-length").value === "bar"
+        ? barBeats(project)
+        : +$("custom-length").value,
+  };
+}
+$("preview-custom-chord").onclick = () => {
+  const chord = selectedCustomChord();
+  inspect(chord);
+  hear(chord);
+};
+$("add-custom-chord").onclick = () => {
+  if (project.progression.length >= 128)
+    return report("Maximum 128 chords per project.", true);
+  edit();
+  const chord = selectedCustomChord();
+  project.progression.push(chord);
+  changed(`Added ${chordData(chord).name}.`);
+  drawSequence();
+  inspect(chord);
+  hear(chord);
+};
 function drawMelodyPages(beat = 0) {
   const required = [0.5, 0.25, 0.125].find((step) =>
     project.melody.every(
@@ -871,7 +922,7 @@ function drawMelodyPages(beat = 0) {
     Math.max(0, Math.floor(beat / melodySpan)),
   );
   $("melody-bars").replaceChildren(new Option("Auto · whole bars", 0));
-  for (let bars = 1; bars <= Math.floor(MAX_BEATS / barBeats(project)); bars++)
+  for (let bars = 1; bars <= phraseBarLimit(project); bars++)
     $("melody-bars").add(
       new Option(`${bars} bar${bars === 1 ? "" : "s"}`, bars),
     );
@@ -1022,10 +1073,7 @@ $("key").onchange = () => {
     project = transposeProject(project, +$("key").value);
     edit();
     changed("Transposed chords and melody.");
-    drawPalette();
-    drawSequence();
-    inspect(selectedChord);
-    drawMelody();
+    renderProject();
   } catch (e) {
     $("key").value = project.key;
     report(e.message, true);
@@ -1135,8 +1183,9 @@ $("melody-bars").onchange = () => {
       melodyBars: +$("melody-bars").value,
     });
     edit();
-    project = next;
+    project.melodyBars = next.melodyBars;
     changed("Melody loop length updated. Existing notes are kept.");
+    drawMelodyPages(+$("melody-page").value * melodySpan);
   } catch (e) {
     $("melody-bars").value = project.melodyBars || 0;
     report(e.message, true);
@@ -1145,7 +1194,7 @@ $("melody-bars").onchange = () => {
 };
 $("melody-add-bar").onclick = () => {
   const previous = melodyLength(project) || barBeats(project);
-  if (previous + barBeats(project) > MAX_BEATS) return;
+  if (previous + barBeats(project) > timelineEnd(project)) return;
   edit();
   project.melodyBars = previous / barBeats(project) + 1;
   drawMelodyPages(previous);
@@ -1184,9 +1233,20 @@ function changeMeter() {
       denominator: +$("meter-denominator").value,
     };
     const candidate = { ...project, meter, melodyBars: 0 };
+    const requiredBars = Math.ceil(
+      Math.max(0, ...project.melody.map((note) => note.start + note.beats)) /
+        barBeats(candidate),
+    );
+    if (requiredBars > phraseBarLimit(project))
+      throw new Error(
+        `This meter would put existing notes beyond the ${phraseBarLimit(project)}-bar phrase. Move those notes earlier before changing meter.`,
+      );
     if (project.melodyBars)
       candidate.melodyBars = Math.max(
-        project.melodyBars,
+        Math.min(
+          project.melodyBars,
+          Math.floor(MAX_BEATS / barBeats(candidate)),
+        ),
         Math.ceil(
           Math.max(0, ...project.melody.map((n) => n.start + n.beats)) /
             barBeats(candidate),

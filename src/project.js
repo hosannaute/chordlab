@@ -1,4 +1,4 @@
-import { diatonicChord, mod } from "./theory.js";
+import { INTERVALS, resolveChord, mod } from "./theory.js";
 import {
   DENOMINATORS,
   MIN_STEP,
@@ -23,7 +23,7 @@ export const newProject = () => ({
   tempo: 100,
   instrument: "grand-piano",
   meter: { numerator: 4, denominator: 4 },
-  melodyBars: 0,
+  melodyBars: 8,
   progression: [0, 4, 5, 3].map((degree) => ({
     degree,
     beats: 4,
@@ -75,8 +75,36 @@ export function validateProject(p) {
   )
     throw new Error("Project exceeds the supported size.");
   const progression = p.progression.map((c) => {
+    if (c?.type === "custom") {
+      if (
+        !integer(c.root, 0, 11) ||
+        !Object.hasOwn(INTERVALS, c.quality) ||
+        !integer(c.inversion, 0, INTERVALS[c.quality].length - 1) ||
+        !number(c.beats, MIN_STEP, MAX_BEATS) ||
+        (c.beats / MIN_STEP) % 1
+      )
+        throw new Error("Invalid custom chord in project.");
+      const valid = {
+        type: "custom",
+        root: c.root,
+        quality: c.quality,
+        beats: c.beats,
+        inversion: c.inversion,
+      };
+      if (c.sourceKey !== undefined || c.sourceMode !== undefined) {
+        if (
+          !integer(c.sourceKey, 0, 11) ||
+          !["major", "minor"].includes(c.sourceMode)
+        )
+          throw new Error("Invalid borrowed-chord source.");
+        valid.sourceKey = c.sourceKey;
+        valid.sourceMode = c.sourceMode;
+      }
+      return valid;
+    }
     if (
       !c ||
+      (c.type !== undefined && c.type !== "diatonic") ||
       !integer(c.degree, 0, 6) ||
       !number(c.beats, MIN_STEP, MAX_BEATS) ||
       (c.beats / MIN_STEP) % 1 ||
@@ -163,20 +191,25 @@ export function transposeProject(project, key) {
     throw new Error(
       "Transposition would move a melody note outside the supported range.",
     );
-  return { ...project, key, melody };
+  const progression = project.progression.map((chord) =>
+    chord.type === "custom"
+      ? {
+          ...chord,
+          root: mod(chord.root + distance),
+          ...(Number.isInteger(chord.sourceKey)
+            ? { sourceKey: mod(chord.sourceKey + distance) }
+            : {}),
+        }
+      : { ...chord },
+  );
+  return { ...project, key, melody, progression };
 }
 export function composition(project, part = "all") {
   const events = [];
   let cursor = 0;
   project.progression.forEach((c, index) => {
     if (part !== "melody")
-      diatonicChord(
-        project.key,
-        project.mode,
-        c.degree,
-        c.seventh,
-        c.inversion,
-      ).notes.forEach((pitch) =>
+      resolveChord(project, c).notes.forEach((pitch) =>
         events.push({
           pitch,
           start: cursor,

@@ -46,7 +46,7 @@ test("multiple saves update by ID, delete independently, and report write failur
   saveProject(b, storage);
   saveProject({ ...a, name: "Renamed" }, storage);
   assert.equal(readProjects(storage).length, 2);
-  assert.equal(readProjects(storage)[0].name, "Renamed");
+  assert.equal(readProjects(storage).at(-1).name, "Renamed");
   assert.equal(deleteProject(a.id, storage)[0].id, b.id);
   assert.throws(() =>
     saveProject(a, {
@@ -83,6 +83,7 @@ test("corrupt library is never silently overwritten", () => {
 });
 test("composition timing accounts for durations, melody and inversions", () => {
   const p = newProject();
+  p.melodyBars = 0;
   p.progression = [
     { degree: 0, beats: 2, inversion: 1, seventh: false },
     { degree: 4, beats: 1, inversion: 0, seventh: true },

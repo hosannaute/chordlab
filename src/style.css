@@ -1062,6 +1062,61 @@ footer a {
   width: 18px;
   height: 18px;
 }
+.borrow-controls {
+  margin-top: 16px;
+}
+.borrow-controls label,
+.custom-chord-controls label {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+}
+.borrow-controls select,
+.custom-chord-controls select {
+  max-width: 190px;
+  font-size: 13px;
+}
+.custom-chord-panel {
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.custom-chord-panel summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+.custom-chord-controls {
+  margin-top: 14px;
+}
+.custom-chord-controls button {
+  min-height: 44px;
+}
+.sustain-control {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.sustain-control button {
+  min-height: 48px;
+  border-color: var(--accent);
+  font-size: 13px;
+}
+.sustain-control small {
+  font-size: 9px;
+  color: var(--muted);
+}
+@media (max-width: 720px) {
+  .piano-panel .section-top {
+    flex-wrap: wrap;
+  }
+  .sustain-control {
+    width: 100%;
+    text-align: left;
+  }
+  .sustain-control button {
+    width: 100%;
+  }
+}
 .history-actions {
   display: flex;
   gap: 6px;

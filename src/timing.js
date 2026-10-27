@@ -12,7 +12,21 @@ export function barBeats(project) {
 }
 export function timelineEnd(project) {
   const bar = barBeats(project);
-  return Math.floor(MAX_BEATS / bar) * bar;
+  return phraseBarLimit(project) * bar;
+}
+export function phraseBarLimit(project) {
+  const bar = barBeats(project);
+  // Keep longer legacy compositions intact, but never create an empty ninth bar.
+  const occupied = Math.ceil(
+    Math.max(
+      0,
+      ...(project.melody || []).map((note) => note.start + note.beats),
+    ) / bar,
+  );
+  return Math.min(
+    Math.floor(MAX_BEATS / bar),
+    Math.max(8, project.melodyBars || 0, occupied),
+  );
 }
 export function melodyLength(project) {
   if (!project.melody.length && !project.melodyBars) return 0;
