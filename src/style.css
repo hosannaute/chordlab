@@ -1018,3 +1018,258 @@ footer a {
       border-color 0.12s;
   }
 }
+/* Composition editing and compact melody view */
+.history-actions {
+  display: flex;
+  gap: 6px;
+}
+.history-actions button {
+  font-size: 12px;
+}
+.session-actions {
+  max-width: none;
+}
+.mobile-transport {
+  display: none;
+}
+.chord-inspector {
+  grid-column: 2;
+  grid-row: 1;
+}
+.progression-panel {
+  grid-column: 1;
+  grid-row: 1;
+}
+.piano-settings-disclosure {
+  margin-bottom: 18px;
+}
+.piano-settings-disclosure summary {
+  cursor: pointer;
+  color: var(--muted);
+  min-height: 44px;
+  padding: 12px 0;
+  font-size: 13px;
+}
+.piano-settings-disclosure summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.piano-settings-disclosure .piano-settings {
+  padding-top: 10px;
+}
+.melody-view-controls {
+  margin-bottom: 10px;
+}
+.melody-view-controls select {
+  font-size: 12px;
+}
+.melody-toolbar label,
+.melody-view-controls label {
+  font-size: 10px;
+}
+#melody-view-hint {
+  margin-bottom: 13px;
+}
+#drag-feedback {
+  min-height: 24px;
+  padding-top: 5px;
+  color: var(--accent);
+}
+.roll-label {
+  font-size: 11px;
+  min-height: 36px;
+}
+.roll-label.beat {
+  font-size: 10px;
+}
+.roll-cell {
+  position: relative;
+  min-height: 36px;
+  touch-action: manipulation;
+}
+.roll-cell.scale-tone {
+  border-bottom-color: #506344;
+}
+.roll-cell.on,
+.roll-cell.continued {
+  touch-action: none;
+  cursor: grab;
+}
+.roll-note-name {
+  font-size: 11px;
+  color: #172612;
+  pointer-events: none;
+}
+.resize-handle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 0;
+  right: 0;
+  width: 16px;
+  height: 100%;
+  color: #1e3313;
+  font-size: 20px;
+  cursor: ew-resize;
+  border-left: 1px solid #506e3c;
+}
+.roll-cell.note-end .roll-note-name {
+  padding-right: 14px;
+}
+.roll-cell.drag-origin {
+  opacity: 0.4;
+}
+.roll-cell.drag-preview {
+  opacity: 1;
+  background: #d4bd8d;
+  border-color: #f0dfb7;
+}
+.roll-cell.drag-invalid {
+  opacity: 1;
+  background: #7d4037;
+  border-color: #d99487;
+}
+@media (max-width: 720px) {
+  main {
+    padding-bottom: 90px;
+  }
+  .session-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .history-actions {
+    display: none;
+  }
+  .transport .transport-buttons {
+    display: none;
+  }
+  .transport {
+    gap: 12px;
+  }
+  .transport label,
+  .piano-settings label,
+  .chord-edit label,
+  .presets label {
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+  .chord-edit select {
+    font-size: 13px;
+  }
+  .chord-inspector,
+  .progression-panel {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .chord-inspector {
+    padding: 15px;
+  }
+  .piano-footer .hint {
+    font-size: 12px;
+  }
+  .piano .white {
+    font-size: 11px;
+  }
+  .piano .black {
+    font-size: 10px;
+  }
+  .mobile-transport {
+    display: flex;
+    position: fixed;
+    z-index: 10;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    gap: 7px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid #59644e;
+    background: #1c231d;
+  }
+  .mobile-transport button {
+    min-height: 48px;
+  }
+  #mobile-play {
+    flex: 1;
+  }
+  #mobile-undo,
+  #mobile-redo {
+    min-width: 45px;
+    font-size: 22px;
+    padding: 5px;
+  }
+  .melody-grid {
+    grid-template-columns: 34px repeat(var(--roll-columns, 8), minmax(0, 1fr));
+  }
+  .roll-cell {
+    min-height: 40px;
+  }
+  .roll-label {
+    font-size: 11px;
+  }
+  .roll-label.beat {
+    font-size: 10px;
+  }
+  .roll-note-name {
+    font-size: 10px;
+  }
+  .resize-handle {
+    width: 12px;
+  }
+  .melody-toolbar .row {
+    gap: 8px;
+  }
+  .melody-toolbar label {
+    font-size: 10px;
+  }
+  .melody-toolbar select {
+    font-size: 13px;
+  }
+  .melody-view-controls {
+    gap: 8px;
+  }
+  .melody-view-controls select {
+    padding: 8px;
+  }
+  .melody-view-controls label {
+    font-size: 10px;
+  }
+  .note-editor {
+    position: sticky;
+    bottom: 77px;
+    z-index: 3;
+    border: 1px solid #59644e;
+  }
+  .note-editor button {
+    min-height: 44px;
+    font-size: 12px;
+  }
+}
+.session-header > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+.session-actions {
+  max-width: 420px;
+}
+@media (max-width: 720px) {
+  .session-header > div:first-child {
+    width: 100%;
+  }
+  .session-actions {
+    max-width: none;
+  }
+  .chord-palette {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .chord-palette strong {
+    font-size: 18px;
+  }
+  .chord-palette small {
+    font-size: 11px;
+  }
+  .note-editor {
+    bottom: calc(77px + env(safe-area-inset-bottom));
+  }
+}

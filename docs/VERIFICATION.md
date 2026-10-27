@@ -1,5 +1,15 @@
 # Verification record
 
+## Usability update
+
+The follow-up usability pass passes **26 unit tests** and a production build. Browser checks used an authored iframe harness with real frame widths, avoiding the unreliable host viewport override from the initial release.
+
+Verified through the application controls: clearing/restoring chords and melody; keyboard undo; pointer dragging from C4 at beat 1 to D4 at beat 2; dragging the right edge from one to two beats; one-step undo/redo of that resize; undoing transposition to the saved project with a cleared unsaved marker; and replacing the progression with ii–V–I and restoring the original without a confirmation dialog. Responsive checks at 390, 360 and 1200 pixels preserve the current melody bar and report no horizontal document overflow. A 390-pixel frame starts with 13 piano keys, 8 scale-note rows and 8 timeline columns. Physical touch hardware is still unverified.
+
+The harness is `docs/responsive-check.html` (serve with `npm run dev`). Its iframe height fits the available browser window so the fixed mobile playback controls are reachable during automation. During the automation session, one injected MutationObserver error was logged; the application source does not use MutationObserver. Remaining browser checks and production verification are recorded separately from that automation instrumentation error.
+
+The original release results below are retained as historical evidence; the synthesis engine was not changed in this usability pass.
+
 Verified on 27 October 2026 using Node 24 on Windows and the Codex Chromium-based in-app browser. This records evidence, not a claim that every browser/device is bug-free.
 
 ## Automated results

@@ -41,6 +41,12 @@
           <p class="subtitle">Find a feeling. Follow the chords.</p>
         </div>
         <div class="session-actions">
+          <div class="history-actions" aria-label="Edit history">
+            <button id="undo" disabled title="Undo (Ctrl/⌘ Z)">↶ Undo</button>
+            <button id="redo" disabled title="Redo (Ctrl/⌘ Shift Z)">
+              ↷ Redo
+            </button>
+          </div>
           <button id="new-project">＋ New</button
           ><button id="save-project" class="accent">Save project</button
           ><button
@@ -158,6 +164,68 @@
             </select>
           </div>
         </section>
+        <section class="panel piano-panel" aria-labelledby="piano-title">
+          <div class="section-top">
+            <div>
+              <p class="eyebrow">02 / PLAY SOMETHING</p>
+              <h2 id="piano-title">Keys, at your fingertips.</h2>
+            </div>
+            <span class="small-label">POLYPHONIC SYNTHESIS</span>
+          </div>
+          <details
+            id="piano-settings-disclosure"
+            class="piano-settings-disclosure"
+          >
+            <summary>Sound &amp; keyboard settings</summary>
+            <div class="piano-settings">
+              <div>
+                <label for="instrument">SOUND</label
+                ><select id="instrument">
+                  <option value="soft-piano">Soft Piano · synth</option>
+                  <option value="electric-piano">Electric Piano · synth</option>
+                  <option value="synth-pad">Synth Pad</option>
+                  <option value="plucked-synth">Plucked Synth</option>
+                  <option value="organ">Organ · synth</option>
+                </select>
+              </div>
+              <div>
+                <label for="octave">START OCTAVE</label
+                ><select id="octave">
+                  <option value="3">C3</option>
+                  <option value="4" selected>C4</option>
+                  <option value="5">C5</option>
+                </select>
+              </div>
+              <div>
+                <label for="octaves">RANGE</label
+                ><select id="octaves">
+                  <option value="1">1 octave</option>
+                  <option value="2" selected>2 octaves</option>
+                </select>
+              </div>
+              <div class="volume">
+                <label for="volume"
+                  >VOLUME <span id="volume-label">65%</span></label
+                ><input id="volume" type="range" min="0" max="100" value="65" />
+              </div>
+            </div>
+          </details>
+          <div id="piano" class="piano" aria-label="Playable piano"></div>
+          <div class="piano-footer">
+            <p class="hint">
+              Play <kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd>
+              <kbd>D</kbd> <kbd>F</kbd> … <kbd>K</kbd> · Hold Space for sustain
+            </p>
+            <div class="row">
+              <label class="check"
+                ><input id="note-labels" type="checkbox" checked />
+                Labels</label
+              ><label class="check"
+                ><input id="scale-highlight" type="checkbox" /> Scale</label
+              ><button id="sustain" aria-pressed="false">Sustain</button>
+            </div>
+          </div>
+        </section>
         <aside class="panel chord-inspector" aria-labelledby="chord-title">
           <p class="eyebrow">INSIDE THE CHORD</p>
           <div class="chord-symbol" id="chord-title">C</div>
@@ -176,62 +244,6 @@
           <p id="chord-function" class="function-text"></p>
           <button id="preview-chord" class="wide">▷ Hear chord</button>
         </aside>
-        <section class="panel piano-panel" aria-labelledby="piano-title">
-          <div class="section-top">
-            <div>
-              <p class="eyebrow">02 / PLAY SOMETHING</p>
-              <h2 id="piano-title">Keys, at your fingertips.</h2>
-            </div>
-            <span class="small-label">POLYPHONIC SYNTHESIS</span>
-          </div>
-          <div class="piano-settings">
-            <div>
-              <label for="instrument">SOUND</label
-              ><select id="instrument">
-                <option value="soft-piano">Soft Piano · synth</option>
-                <option value="electric-piano">Electric Piano · synth</option>
-                <option value="synth-pad">Synth Pad</option>
-                <option value="plucked-synth">Plucked Synth</option>
-                <option value="organ">Organ · synth</option>
-              </select>
-            </div>
-            <div>
-              <label for="octave">START OCTAVE</label
-              ><select id="octave">
-                <option value="3">C3</option>
-                <option value="4" selected>C4</option>
-                <option value="5">C5</option>
-              </select>
-            </div>
-            <div>
-              <label for="octaves">RANGE</label
-              ><select id="octaves">
-                <option value="1">1 octave</option>
-                <option value="2" selected>2 octaves</option>
-              </select>
-            </div>
-            <div class="volume">
-              <label for="volume"
-                >VOLUME <span id="volume-label">65%</span></label
-              ><input id="volume" type="range" min="0" max="100" value="65" />
-            </div>
-          </div>
-          <div id="piano" class="piano" aria-label="Playable piano"></div>
-          <div class="piano-footer">
-            <p class="hint">
-              Play <kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd>
-              <kbd>D</kbd> <kbd>F</kbd> … <kbd>K</kbd> · Hold Space for sustain
-            </p>
-            <div class="row">
-              <label class="check"
-                ><input id="note-labels" type="checkbox" checked />
-                Labels</label
-              ><label class="check"
-                ><input id="scale-highlight" type="checkbox" /> Scale</label
-              ><button id="sustain" aria-pressed="false">Sustain</button>
-            </div>
-          </div>
-        </section>
         <section class="panel melody-panel" aria-labelledby="melody-title">
           <div class="section-top">
             <div>
@@ -242,8 +254,8 @@
           </div>
           <div class="melody-toolbar">
             <p class="hint">
-              Tap a cell to add a note; tap a note to edit it. Snaps to half
-              beats.
+              Tap to add. Drag a note to move it; drag its right edge to resize.
+              Arrow keys and the controls below work too.
             </p>
             <div class="row">
               <label for="melody-page">BARS</label
@@ -257,12 +269,37 @@
               </select>
             </div>
           </div>
+          <div class="melody-view-controls row">
+            <label for="melody-octave">MELODY OCTAVE</label>
+            <select id="melody-octave">
+              <option value="2">C2–C3</option>
+              <option value="3">C3–C4</option>
+              <option value="4" selected>C4–C5</option>
+              <option value="5">C5–C6</option>
+              <option value="6">C6–B6</option>
+            </select>
+            <label for="melody-notes">SHOW</label>
+            <select id="melody-notes">
+              <option value="scale">Scale notes</option>
+              <option value="all">All notes</option>
+            </select>
+            <button id="melody-deselect" class="text-button">
+              Deselect note
+            </button>
+          </div>
+          <p id="melody-view-hint" class="hint"></p>
           <div
             id="melody-grid"
             class="melody-grid"
             role="group"
             aria-label="Melody piano roll"
           ></div>
+          <p
+            id="drag-feedback"
+            class="hint"
+            role="status"
+            aria-live="polite"
+          ></p>
           <div id="note-editor" class="note-editor" hidden>
             <span id="selected-note"></span>
             <div class="row">
@@ -329,6 +366,22 @@
         >
       </footer>
     </main>
+    <nav class="mobile-transport" aria-label="Quick composition controls">
+      <button
+        id="mobile-play"
+        class="accent"
+        aria-label="Play or stop composition"
+      >
+        ▶ Play
+      </button>
+      <button id="mobile-stop" aria-label="Stop playback">■ Stop</button>
+      <button id="mobile-undo" aria-label="Undo composition edit" disabled>
+        ↶
+      </button>
+      <button id="mobile-redo" aria-label="Redo composition edit" disabled>
+        ↷
+      </button>
+    </nav>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

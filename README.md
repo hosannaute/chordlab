@@ -14,6 +14,9 @@
 - Play one or two octaves with mouse, touch pointers or the computer keyboard. Use sustain, volume, octave selection, labels and scale highlighting.
 - Choose Soft Piano, Electric Piano, Synth Pad, Plucked Synth or Organ. **All are synthesized interpretations, not sampled instruments.** No audio samples, paid APIs or account are required.
 - Compose a melody on a half-beat grid; move, resize and delete notes; play it alone or with chords. Phone layouts show one bar per page; larger layouts show two.
+- Undo/redo up to 100 composition edits, including clearing a part or replacing a progression. Consecutive typing changes are grouped, and undo tracks the saved composition accurately.
+- Start with a compact scale-note melody view, reveal chromatic notes, and drag notes or their right edges to move/resize them. Editing buttons and keyboard navigation remain available.
+- Keep Play, Stop, Undo and Redo within reach using the fixed phone playback bar. Sound and keyboard settings fold away on smaller screens.
 - Play, stop, loop and adjust tempo. Changing tempo affects newly scheduled notes; notes already sounding keep their scheduled release.
 - Save, rename, reopen and delete multiple local projects. Import/export validated version-2 JSON backups.
 - Export standard format-1 MIDI with a tempo/time-signature track and separate chord/melody tracks.
@@ -55,6 +58,8 @@ Changing the key transposes the melody by the shortest semitone distance as well
 
 `A W S E D F T G Y H U J K O L P ;` play consecutive semitones from the selected starting C. Hold Space for sustain when focus is outside an input or button, or use the Sustain toggle. Input fields keep normal typing behavior. Piano buttons also support normal Enter/Space activation. The melody grid uses a single Tab stop with arrow navigation, Home/End within a row, and Enter/Space to add/select a note. All destructive library actions ask for confirmation.
 
+Outside text fields, Ctrl/Command+Z undoes a composition edit; Ctrl/Command+Shift+Z or Ctrl+Y redoes it. Delete/Backspace removes a focused melody note. Clearing a part and replacing a preset are now reversible without confirmation; deleting a saved library project still asks first. Undo history is local to the currently open project and is reset when opening another project.
+
 ## Architecture
 
 The original one-file implementation was refactored without adding a UI framework. Pure music/data modules remain independent from browser controls.
@@ -69,6 +74,8 @@ src/
   storage.js   local project library and JSON import
   midi.js      format-1 SMF encoding at 480 ticks per quarter note
   lessons.js   short beginner-friendly explanations
+  history.js   bounded undo/redo snapshots and grouped typing edits
+  melody.js    validated note edits, scale rows and responsive page mapping
   main.js      application state, DOM components, editing and downloads
   style.css    responsive workspace, touch controls and visible focus
 test/          unit tests with no testing-framework dependency
@@ -113,12 +120,12 @@ For a fork, change the base path if the repository name changes. Select **Settin
 - The sounds are intentionally simple synthesis. There is no sampled acoustic piano, recording, audio export, MIDI hardware input, velocity editor or effects rack.
 - Timing is a fixed half-beat grid in 4/4. Melody length is limited to 32 bars; chord timelines can be longer. Large sessions may need additional profiling on older phones.
 - Tempo changes affect future scheduling; held voices retain their existing duration. Preview timbres and pedal gestures are not embedded in MIDI.
-- No undo stack, drag-and-drop editing, collaboration or cloud storage. Reordering uses accessible move controls.
+- No collaboration or cloud storage. Chord reordering uses accessible move controls; melody notes support pointer dragging as well as editing controls.
 - Local save data can be removed by browser cleanup/private mode. JSON exports are the supported backup/transfer mechanism.
 - Key choices cover all pitch classes using a practical spelling; there is no separate enharmonic-key selector. Harmonic/melodic minor and borrowed chords are future additions.
-- A phone-sized layout is chosen at startup for larger touch targets. Reload after rotating/resizing if you want the alternate melody paging density.
+- The piano initially shows one octave on phones; its range remains user-selectable. Melody paging adapts when crossing the phone breakpoint, preserving the visible beat.
 
-Useful next improvements are an undo history, physical-device regression checks, smoother duration changes during tempo edits, MIDI input and optional offline installation.
+Useful next improvements are automatic draft recovery, physical-device regression checks, smoother duration changes during tempo edits, MIDI input and optional offline installation. See [the usability update](docs/USABILITY.md) for the current editing behavior.
 
 ## License
 
