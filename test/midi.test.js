@@ -56,6 +56,7 @@ test("VLQ handles boundaries and rejects invalid deltas", () => {
 });
 test("format-1 MIDI contains exact tempo, chord inversion, duration and melody channel", () => {
   const p = newProject();
+  p.melodyBars = 0;
   p.tempo = 120;
   p.meter = { numerator: 2, denominator: 4 };
   p.progression = [{ degree: 0, beats: 2, inversion: 1, seventh: false }];
@@ -99,6 +100,7 @@ test("MIDI exports the selected meter and repeats a short melody across the chor
   ]) {
     const p = newProject(),
       bar = (numerator * 4) / denominator;
+    p.melodyBars = 0;
     p.meter = { numerator, denominator };
     p.progression = [
       { degree: 0, beats: bar * 4, inversion: 0, seventh: false },
@@ -133,4 +135,33 @@ test("extreme mismatched phrase lengths cannot allocate an unbounded MIDI arrang
     beats: 0.125,
   }));
   assert.throws(() => exportMidi(p), /too large/);
+});
+test("MIDI includes borrowed, diminished and augmented chord notes", () => {
+  const p = newProject();
+  p.progression = [
+    { type: "custom", root: 2, quality: "dim7", beats: 1, inversion: 0 },
+    { type: "custom", root: 0, quality: "augmented", beats: 1, inversion: 0 },
+    {
+      type: "custom",
+      root: 4,
+      quality: "dom7",
+      sourceKey: 9,
+      sourceMode: "minor",
+      beats: 1,
+      inversion: 0,
+    },
+  ];
+  const notes = decode(exportMidi(p))[1].filter((e) => e.status === 144);
+  assert.deepEqual(
+    notes.filter((e) => e.tick === 0).map((e) => e.bytes[0]),
+    [50, 53, 56, 59],
+  );
+  assert.deepEqual(
+    notes.filter((e) => e.tick === 480).map((e) => e.bytes[0]),
+    [48, 52, 56],
+  );
+  assert.deepEqual(
+    notes.filter((e) => e.tick === 960).map((e) => e.bytes[0]),
+    [52, 56, 59, 62],
+  );
 });

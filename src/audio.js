@@ -47,6 +47,7 @@ export class AudioEngine {
     this.volume = 0.65;
     this.instrument = "soft-piano";
     this.generation = 0;
+    this.groupVersions = new Map();
     this.onStatus = onStatus;
   }
   get grandReady() {
@@ -192,8 +193,12 @@ export class AudioEngine {
   }
   stop(group) {
     if (!group) this.generation++;
+    else this.groupVersions.set(group, this.groupGeneration(group) + 1);
     for (const voice of this.voices)
       if (!group || voice.group === group)
         voice.release(this.context.currentTime, true);
+  }
+  groupGeneration(group) {
+    return this.groupVersions.get(group) || 0;
   }
 }

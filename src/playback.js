@@ -5,6 +5,7 @@ export class Playback {
     this.onFrame = onFrame;
     this.onStop = onStop;
     this.generation = 0;
+    this.scheduled = [];
   }
   async play(project, loop = true, part = "all") {
     this.stop();
@@ -43,9 +44,21 @@ export class Playback {
     const beat = this.currentBeat(),
       now = this.audio.context.currentTime,
       lookahead = beat + (0.12 * this.tempo) / 60;
-    if (this.wasLooping && !this.loop)
+    this.scheduled = this.scheduled.filter((note) => note.endTime > now);
+    if (this.wasLooping && !this.loop) {
       this.endBeat =
         (Math.floor(Math.max(0, beat) / this.song.beats) + 1) * this.song.beats;
+      const cutoff = now + ((this.endBeat - beat) * 60) / this.tempo;
+      this.scheduled = this.scheduled.filter((note) => {
+        if (note.startBeat >= this.endBeat) {
+          note.voice?.release(now, true);
+          note.track.cursor = Math.min(note.track.cursor, note.cursor);
+          return false;
+        }
+        if (note.endBeat > this.endBeat) note.voice?.release(cutoff, true);
+        return true;
+      });
+    }
     this.wasLooping = this.loop;
     const active = [];
     for (const track of this.tracks) {
@@ -66,12 +79,20 @@ export class Playback {
             track.beats - event.start,
             this.loop ? Infinity : this.endBeat - start,
           );
-          this.audio.note(
+          const voice = this.audio.note(
             event.pitch,
             when,
             (duration * 60) / this.tempo,
             "transport",
           );
+          this.scheduled.push({
+            voice,
+            track,
+            cursor: track.cursor,
+            startBeat: start,
+            endBeat: start + duration,
+            endTime: when + (duration * 60) / this.tempo,
+          });
         }
         track.cursor++;
       }
@@ -103,6 +124,7 @@ export class Playback {
     this.generation++;
     clearInterval(this.timer);
     this.running = false;
+    this.scheduled = [];
     this.audio.stop("transport");
     this.onStop?.();
   }

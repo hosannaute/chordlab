@@ -17,8 +17,10 @@ export function saveProject(project, storage = localStorage) {
   const valid = validateProject(project);
   const list = readProjects(storage);
   const index = list.findIndex((p) => p.id === valid.id);
-  if (index >= 0) list[index] = valid;
-  else {
+  if (index >= 0) {
+    list.splice(index, 1);
+    list.push(valid);
+  } else {
     if (list.length >= 100)
       throw new Error(
         "Library is full (100 projects). Export and delete a project first.",

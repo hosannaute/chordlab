@@ -49,5 +49,5 @@ test("responsive page mapping preserves the visible beat and clamps at timeline 
     desktop = gridLayout({}, false);
   assert.equal(Math.floor(8 / phone.span), 2);
   assert.equal(Math.floor(8 / desktop.span), 1);
-  assert.equal(phone.pages - 1, 31);
+  assert.equal(phone.pages - 1, 7);
 });

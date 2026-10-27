@@ -1,6 +1,6 @@
 import { scale } from "./theory.js";
 import { MIN_STEP, NOTE_LENGTHS } from "./timing.js";
-import { melodyLength, barBeats, MAX_BEATS } from "./timing.js";
+import { melodyLength, barBeats, timelineEnd } from "./timing.js";
 export { NOTE_LENGTHS } from "./timing.js";
 export function resizeLength(beats) {
   return NOTE_LENGTHS.reduce((best, value) =>
@@ -51,7 +51,7 @@ export function repeatPhrase(project) {
   const length = melodyLength(project);
   if (
     !project.melody.length ||
-    length * 2 > MAX_BEATS ||
+    length * 2 > timelineEnd(project) ||
     project.melody.length * 2 > 512
   )
     throw new Error(

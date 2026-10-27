@@ -168,6 +168,50 @@
             class="chord-palette"
             aria-label="Chords in the selected scale"
           ></div>
+          <div class="borrow-controls row">
+            <label for="chord-source-key">BORROW FROM</label
+            ><select id="chord-source-key">
+              <option value="">Home key</option>
+            </select>
+            <label for="chord-source-mode">SCALE</label
+            ><select id="chord-source-mode">
+              <option value="major">Major</option>
+              <option value="minor">Natural minor</option>
+            </select>
+          </div>
+          <p id="chord-palette-hint" class="hint"></p>
+          <details class="custom-chord-panel" open>
+            <summary>Build any chord · passing tones, dim &amp; aug</summary>
+            <div class="row custom-chord-controls">
+              <label for="custom-root">ROOT</label
+              ><select id="custom-root"></select>
+              <label for="custom-quality">QUALITY</label
+              ><select id="custom-quality">
+                <option value="major">Major</option>
+                <option value="minor">Minor</option>
+                <option value="diminished">Diminished · dim</option>
+                <option value="augmented">Augmented · aug</option>
+                <option value="dom7">Dominant 7</option>
+                <option value="maj7">Major 7</option>
+                <option value="min7">Minor 7</option>
+                <option value="dim7">Diminished 7 · dim7</option>
+                <option value="halfdim7">Half-diminished 7</option>
+              </select>
+              <label for="custom-length">LENGTH</label
+              ><select id="custom-length">
+                <option value="0.5">1/8 note · passing</option>
+                <option value="1">1/4 note</option>
+                <option value="2">1/2 note</option>
+                <option value="bar" selected>1 bar</option>
+              </select>
+              <button id="preview-custom-chord">▷ Preview</button
+              ><button id="add-custom-chord">＋ Add chord</button>
+            </div>
+            <p class="hint">
+              Use a chord from any root without changing the home key. Preview
+              tension and choose where it resolves.
+            </p>
+          </details>
           <div class="timeline-label">
             <span>YOUR PROGRESSION</span
             ><button id="clear-chords" class="text-button">Clear chords</button>
@@ -195,7 +239,16 @@
               <p class="eyebrow">02 / PLAY SOMETHING</p>
               <h2 id="piano-title">Keys, at your fingertips.</h2>
             </div>
-            <span class="small-label">SAMPLED + SYNTHESIZED</span>
+            <div class="sustain-control">
+              <button
+                id="sustain"
+                aria-pressed="false"
+                aria-label="Keyboard sustain pedal"
+                title="Hold piano keys after release. Space also holds the pedal."
+              >
+                Sustain: Off</button
+              ><small>Keyboard pedal · or hold Space</small>
+            </div>
           </div>
           <details
             id="piano-settings-disclosure"
@@ -277,7 +330,7 @@
                 Labels</label
               ><label class="check"
                 ><input id="scale-highlight" type="checkbox" /> Scale</label
-              ><button id="sustain" aria-pressed="false">Sustain</button>
+              >
             </div>
           </div>
         </section>

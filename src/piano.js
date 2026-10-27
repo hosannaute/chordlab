@@ -75,11 +75,13 @@ export class Piano {
   }
   async tap(pitch) {
     const generation = this.audio.generation,
+      previewGeneration = this.audio.groupGeneration("preview"),
       instrument = this.audio.instrument;
     try {
       await this.audio.init();
       if (
         generation !== this.audio.generation ||
+        previewGeneration !== this.audio.groupGeneration("preview") ||
         instrument !== this.audio.instrument
       )
         return;
@@ -87,6 +89,7 @@ export class Piano {
     } catch (e) {
       if (
         generation !== this.audio.generation ||
+        previewGeneration !== this.audio.groupGeneration("preview") ||
         instrument !== this.audio.instrument
       )
         return;
@@ -112,6 +115,9 @@ export class Piano {
     document
       .getElementById("sustain")
       .setAttribute("aria-pressed", String(this.sustain));
+    document.getElementById("sustain").textContent = this.sustain
+      ? "Sustain: On"
+      : "Sustain: Off";
   }
   panic() {
     this.held.clear();

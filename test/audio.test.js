@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { AudioEngine } from "../src/audio.js";
 import { Playback } from "../src/playback.js";
 import { newProject } from "../src/project.js";
+import { Piano } from "../src/piano.js";
 class Parameter {
   constructor() {
     this.value = 0;
@@ -141,6 +142,91 @@ function fakeAudio() {
     },
   };
 }
+test("clearing a preview while piano samples load prevents a delayed ghost note", async () => {
+  let finish;
+  const audio = new AudioEngine();
+  audio.context = { currentTime: 0 };
+  audio.instrument = "grand-piano";
+  audio.init = () =>
+    new Promise((resolve) => {
+      finish = resolve;
+    });
+  const calls = [];
+  audio.note = (...args) => calls.push(args);
+  const piano = Object.create(Piano.prototype);
+  piano.audio = audio;
+  piano.report = () => {};
+  const pending = piano.tap(60);
+  audio.stop("preview");
+  finish();
+  await pending;
+  assert.equal(calls.length, 0);
+});
+test("loop-off cancels a next-cycle chord already queued by lookahead", async () => {
+  const audio = fakeAudio(),
+    voices = [];
+  audio.note = (...args) => {
+    audio.calls.push(args);
+    const voice = {
+      args,
+      releases: [],
+      release(...release) {
+        this.releases.push(release);
+      },
+    };
+    voices.push(voice);
+    return voice;
+  };
+  const p = newProject();
+  p.melodyBars = 0;
+  p.tempo = 120;
+  p.progression = [{ degree: 0, beats: 1, inversion: 0, seventh: false }];
+  const playback = new Playback(audio, () => {});
+  await playback.play(p);
+  clearInterval(playback.timer);
+  audio.context.currentTime = 0.45;
+  playback.tick();
+  const queued = voices.filter((v) => v.args[1] >= 0.54 - 1e-8);
+  assert.equal(queued.length, 3);
+  audio.context.currentTime = 0.46;
+  playback.loop = false;
+  playback.tick();
+  assert.ok(
+    queued.every(
+      (v) =>
+        v.releases.length === 1 &&
+        v.releases[0][0] === 0.46 &&
+        v.releases[0][1] === true,
+    ),
+  );
+  playback.loop = true;
+  playback.tick();
+  assert.equal(voices.length, 9);
+  playback.stop();
+});
+test("an eight-bar melody returns directly from bar eight to bar one", async () => {
+  const audio = fakeAudio(),
+    p = newProject(),
+    playback = new Playback(audio, () => {});
+  p.progression = [];
+  p.tempo = 120;
+  p.melody = [
+    { pitch: 72, start: 0, beats: 0.5 },
+    { pitch: 74, start: 31.5, beats: 0.5 },
+  ];
+  await playback.play(p);
+  clearInterval(playback.timer);
+  for (let tick = 1; tick <= 650; tick++) {
+    audio.context.currentTime = tick * 0.025;
+    playback.tick();
+  }
+  const opening = audio.calls.filter((call) => call[0] === 72),
+    closing = audio.calls.find((call) => call[0] === 74);
+  assert.equal(opening.length, 2);
+  assert.ok(Math.abs(opening[1][1] - 16.04) < 1e-8);
+  assert.ok(Math.abs(closing[1] + closing[2] - opening[1][1]) < 1e-8);
+  playback.stop();
+});
 test("melody and chords keep independent loop periods on one clock in custom meters", async () => {
   for (const meter of [
     { numerator: 3, denominator: 4 },
@@ -154,6 +240,7 @@ test("melody and chords keep independent loop periods on one clock in custom met
       playback = new Playback(audio, (...frame) => frames.push(frame));
     const project = newProject(),
       bar = (meter.numerator * 4) / meter.denominator;
+    project.melodyBars = 0;
     project.tempo = 120;
     project.meter = meter;
     project.progression = [
@@ -184,6 +271,7 @@ test("unordered melody edits schedule chronologically and longer melody keeps ch
   const audio = fakeAudio(),
     playback = new Playback(audio, () => {}),
     project = newProject();
+  project.melodyBars = 0;
   project.tempo = 120;
   project.meter = { numerator: 1, denominator: 4 };
   project.melodyBars = 4;
@@ -209,6 +297,7 @@ test("disabling loop during a later pass finishes that pass and stop cancels bot
   const audio = fakeAudio(),
     playback = new Playback(audio, () => {}),
     p = newProject();
+  p.melodyBars = 0;
   p.tempo = 120;
   p.meter = { numerator: 1, denominator: 4 };
   p.progression = [{ degree: 0, beats: 2, inversion: 0, seventh: false }];
@@ -260,6 +349,7 @@ test("default transport repeats both chords and melody through several complete 
       () => {},
     ),
     project = newProject();
+  project.melodyBars = 0;
   project.tempo = 120;
   project.meter = { numerator: 1, denominator: 4 };
   project.progression = [{ degree: 0, beats: 1, seventh: false, inversion: 0 }];
@@ -287,6 +377,7 @@ test("melody-only playback also loops by default", async () => {
       () => {},
     ),
     project = newProject();
+  project.melodyBars = 0;
   project.tempo = 120;
   project.meter = { numerator: 1, denominator: 4 };
   project.melody = [{ pitch: 72, start: 0, beats: 1 }];
@@ -309,6 +400,7 @@ test("non-looping visual playhead does not wrap while release tails finish", asy
     () => {},
   );
   const project = newProject();
+  project.melodyBars = 0;
   project.tempo = 120;
   project.progression = [{ degree: 0, beats: 1, seventh: false, inversion: 0 }];
   await playback.play(project, false);
@@ -327,6 +419,7 @@ test("scheduler limits lookahead, avoids duplicate notes and applies tempo to la
       () => {},
     ),
     p = newProject();
+  p.melodyBars = 0;
   p.tempo = 120;
   await playback.play(p, false);
   clearInterval(playback.timer);
@@ -354,6 +447,7 @@ test("loop crosses boundaries and stop during audio initialization cannot start 
     ),
     p = newProject();
   p.progression = [{ degree: 0, beats: 1, seventh: false, inversion: 0 }];
+  p.melodyBars = 0;
   p.tempo = 120;
   await playback.play(p, true);
   clearInterval(playback.timer);
