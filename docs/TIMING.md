@@ -2,6 +2,8 @@
 
 CHORDLAB 2.3 gives harmony and melody separate loop lengths on one audio clock. A short melody repeats during the chord progression instead of playing once and waiting for the longest part to restart.
 
+**2.4 update:** new melody phrases default to eight bars and the editor cannot append an empty ninth bar. Add bar/Repeat phrase stop at that limit; the older 128-quarter-note capacity described below is now a compatibility ceiling for preserved legacy projects and unusually large meters. Meter changes that would push notes beyond the current phrase limit are rejected. See [CHORDS.md](CHORDS.md) for the current behavior.
+
 ## Using the controls
 
 1. Set **Time signature** in the session strip. The numerator accepts 1–32; the denominator accepts 1, 2, 4, 8, 16 or 32. There is one meter per project.

@@ -1,5 +1,19 @@
 # Verification record
 
+## Chromatic chords, Sustain and eight-bar phrases (2.4)
+
+Verified on 27 October 2026 with Node 24 on Windows and the Chromium-based in-app browser:
+
+- **54 unit tests pass**, including all roots/qualities/inversions, borrowed-key root spelling, custom chord validation/JSON roundtrip, chromatic transposition, decoded MIDI chord pitches, eight-bar timeline boundaries and retained longer legacy notes. A scheduler test verifies the last note of bar eight ends at the exact next bar-one onset.
+- Regressions from the review are covered: cancelling a preview during sample initialization schedules no delayed note; turning Loop off cancels a next-cycle chord already queued by lookahead and can resume scheduling if re-enabled; saving an earlier library project makes it the restored entry.
+- Browser controls added F minor, C diminished seventh and C augmented to a C-major session without changing its home key. Transposing to D produced Gm, D°7 and D+; the dim7 third inversion and all custom chords survived save/reload. The inspector spelled the augmented fifth G♯ in C augmented.
+- Changing melody loop length followed by a chord-duration edit now retained the first edit (two quarter beats), instead of reverting it. A note placed at bar 8's final half-beat used a half-beat duration, with the last page 7–8 on desktop; Next and Add bar were disabled. A meter change that would push that note beyond eight bars was rejected without deleting it.
+- At real 390/360 pixel iframe widths, document scroll width equaled body width (375/345 after scrollbar). The phone melody page list ended at 8. Sustain remained visible above collapsed sound settings, spanned the piano panel width, toggled On, and returned Off with Stop.
+- Browser save/reload restored the most recently saved earlier project (Chromatic A at 120 BPM), retaining borrowed/custom chords and the eight-bar loop. No warnings/errors were returned from that desktop test tab.
+- **8/8 real audio checks passed** after the cancellation changes: all five synth presets, future onset cancellation, all 21 decoded Grand Piano recordings, and sampled onset cancellation. The sampled chord peak was 0.0762, release tails were silent and no voices remained. The decoded bank used 96.0 MiB in the tested browser.
+
+Sustain is a live-keyboard pedal; automatic sequencer pedal events are not implemented. Existing longer legacy phrases are retained rather than trimmed. Physical phone and Safari/iOS checks remain outstanding. See [CHORDS.md](CHORDS.md).
+
 ## Meter and continuous melody update (2.3)
 
 Verified on 27 October 2026 with Node 24 on Windows and the Chromium-based in-app browser:

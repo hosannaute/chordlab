@@ -15,15 +15,16 @@
 ## What you can do
 
 - Explore major and natural minor in all 12 chromatic keys, with contextual enharmonic spelling, diatonic triads and seventh chords.
+- Borrow chords from another major/minor key without changing the home key. Build any root with major, minor, dim, aug, dominant 7, major 7, minor 7, dim7 or half-diminished 7 quality. Choose a short length for passing chords.
 - Build progressions with individual previews, durations, inversions, duplication, removal, and accessible move controls. Five starting ideas include ii–V–I and i–VI–III–VII.
 - Inspect each chord's notes, Roman numeral, semitone formula and musical function.
-- Play one or two octaves with mouse, touch pointers or the computer keyboard. Use sustain, volume, octave selection, labels and scale highlighting.
+- Play one or two octaves with mouse, touch pointers or the computer keyboard. **Sustain: On/Off** sits beside the piano heading and spans the phone width. Space also holds the keyboard pedal; Stop releases it.
 - Play a sampled Grand Piano using Alexander Holm's Salamander recordings of a Yamaha C5. New projects use Grand Piano; existing projects retain their saved sound. Soft Piano, Electric Piano, Synth Pad, Plucked Synth and Organ remain available.
 - Compose up to 512 melody notes on an eighth-, sixteenth- or thirty-second-note grid. Add bars, repeat a phrase into editable copies, and move, resize or delete notes. Previous/Next and optional playback following keep long phrases accessible on phones.
 - Undo/redo up to 100 composition edits, including clearing a part or replacing a progression. Consecutive typing changes are grouped, and undo tracks the saved composition accurately.
 - Start with a compact scale-note melody view, reveal chromatic notes, and drag notes or their right edges to move/resize them. Editing buttons and keyboard navigation remain available.
 - Keep Play, Stop, Loop, Undo and Redo within reach using the fixed phone playback bar. Sound and keyboard settings fold away on smaller screens.
-- Chords and melody loop independently on the same tempo clock: a one-bar melody repeats throughout a four-bar chord progression. Melody-only playback uses the same phrase length. Set a custom time signature and choose automatic or explicit melody loop length in bars.
+- Chords and melody loop independently on the same tempo clock. New melody phrases use **eight musical bars**, with no empty ninth bar or ninth editor page. Shorter explicit or automatic loops remain available.
 - Save, rename, reopen and delete multiple local projects. Import/export validated version-2 JSON backups.
 - Export standard format-1 MIDI with a tempo/time-signature track and separate chord/melody tracks.
 - Learn eight short theory topics with audio examples.
@@ -64,11 +65,11 @@ Changing the key transposes the melody by the shortest semitone distance as well
 
 The time signature controls bar divisions. Set a numerator from **1–32** and a denominator of **1, 2, 4, 8, 16 or 32**: examples include 3/4, 6/8, 7/8 and 5/16. Tempo always counts quarter notes; a 6/8 bar lasts three quarter-note beats. Changing meter preserves existing note timing. **One bar per chord** adjusts all chord lengths to the new meter when desired, and Undo restores the previous lengths.
 
-The melody's **Auto · whole bars** loop ends at the bar containing its last note. A short melody therefore repeats without waiting for a longer chord progression. Choose an explicit **Loop length** to include intentional rests. A shorter setting is rejected if it would hide notes. Different phrase lengths stay on the same clock and may meet again after several cycles; use matching bar counts when you want identical boundaries.
+New projects start with an **eight-bar melody loop**. The editor ends at bar eight; a note at the final grid position is shortened to fit rather than creating a ninth bar. Add bar and Repeat phrase stop at the phrase limit. Shorter settings and **Auto · whole bars** remain available. A shorter loop, or a meter change that would push existing notes past the limit, is rejected without deleting notes. Longer legacy projects are preserved with a visible legacy limit. Different part lengths stay on the same clock; choose equal or divisible bar counts for recurring shared starts.
 
-For more than eight notes, choose **Grid → 1/16 notes** (16 positions in a 4/4 bar) or **1/32 notes** (32 positions), and choose a matching note length. Use **＋ Add bar** for a longer phrase, **×2 Repeat phrase** for editable copies, or Previous/Next to reach other bars. Fine grids scroll inside their own panel on phones. **Follow playback** follows both the current melody page and horizontal position; turn it off to inspect another bar while listening. Note count is separate from grid width: a project supports **512 melody notes** within a 128-quarter-note timeline.
+For more than eight notes, choose **Grid → 1/16 notes** (16 positions in a 4/4 bar) or **1/32 notes** (32 positions), with a matching note length. Add bar and Repeat phrase work within the eight-bar limit; Previous/Next reaches the other bars. Fine grids scroll inside their own panel on phones. Follow playback follows both the page and horizontal position. Note count is separate from bar count: a project supports **512 melody notes**, with an absolute compatibility ceiling of 128 quarter-note beats.
 
-Older version-2 saves default to 4/4 and automatic melody length without changing their notes or instrument. New meter and loop-length fields survive local saves and JSON export/import. See [timing details](docs/TIMING.md) for synchronization, limits and research references.
+Older version-2 saves default to 4/4 and automatic melody length without changing notes or instrument. Meter, loop length and chromatic chord fields survive saves and JSON import/export. Re-saving an earlier library entry makes it the project restored on reload. See [timing details](docs/TIMING.md) and [borrowed chords and sustain](docs/CHORDS.md).
 
 ### Keyboard access
 
@@ -114,7 +115,7 @@ The scheduler wakes every 25 ms and schedules approximately 120 ms ahead using `
 
 ### Music theory
 
-Major uses `[0,2,4,5,7,9,11]`; natural minor uses `[0,2,3,5,7,8,10]`. Diatonic chords stack every other scale degree while preserving octave offsets. The engine supports major, minor, diminished and augmented triads, plus major, minor, dominant and half-diminished sevenths. Augmented triads are available in the theory API; the chord palette deliberately contains only diatonic chords.
+Major uses `[0,2,4,5,7,9,11]`; natural minor uses `[0,2,3,5,7,8,10]`. Diatonic chords stack alternate scale degrees while preserving octave offsets. All four triad qualities and major, minor, dominant, fully diminished and half-diminished sevenths are available. The palette follows the home key or a separate borrowing key; the builder exposes every quality on all twelve roots.
 
 Pitch classes and spelled note names are separate. A scale advances through seven distinct letters and applies sharps/flats as required, including E♯ in F♯ major. Natural minor correctly uses **v**, not a major V. Inversions rotate the lowest chord tones up an octave; changing an inversion never changes its harmonic identity.
 
@@ -144,11 +145,11 @@ For a fork, change the base path if the repository name changes. Select **Settin
 
 - Physical Android multitouch, device audio latency, speaker quality, Safari/iOS behavior and screen-reader workflows still require target-device testing.
 - The Grand Piano is a compact sample bank, with the limitations described above. There is no recording, audio export, MIDI hardware input, velocity editor or effects rack.
-- A project has one time signature; mid-song meter changes, swing and triplet grids are not implemented. Melody length is limited to 128 quarter-note beats (32 bars in 4/4); chord timelines can be longer. Large sessions may need additional profiling on older phones.
+- A project has one time signature; mid-song meter changes, swing and triplet grids are not implemented. New melodies use at most eight bars, with an absolute ceiling of 128 quarter-note beats in large meters. Longer legacy melodies remain recoverable. Chord timelines can be longer; large sessions need profiling on older phones.
 - Tempo changes affect future scheduling; held voices retain their existing duration. Preview timbres and pedal gestures are not embedded in MIDI.
 - No collaboration or cloud storage. Chord reordering uses accessible move controls; melody notes support pointer dragging as well as editing controls.
 - Local save data can be removed by browser cleanup/private mode. JSON exports are the supported backup/transfer mechanism.
-- Key choices cover all pitch classes using a practical spelling; there is no separate enharmonic-key selector. Harmonic/melodic minor and borrowed chords are future additions.
+- Key choices cover all pitch classes using a practical spelling; there is no separate enharmonic-key selector. Harmonic/melodic-minor palettes remain future additions, though their chromatic chords can be built manually.
 - The piano initially shows one octave on phones; its range remains user-selectable. Melody pages normally contain one bar on phones and two on larger displays, capped at 32 columns. Fine grids scroll within the panel and paging preserves the visible beat across layout changes.
 
 Useful next improvements are automatic draft recovery, physical-device regression checks, smoother duration changes during tempo edits, MIDI input and optional offline installation. See [the usability update](docs/USABILITY.md) for the current editing behavior.
