@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CHORDLAB · Responsive check</title>
+    <style>
+      body {
+        font: 14px system-ui;
+        background: #101512;
+        color: #e6e9e2;
+        margin: 0;
+        padding: 16px;
+      }
+      nav {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      button {
+        font: inherit;
+        padding: 12px;
+        cursor: pointer;
+      }
+      iframe {
+        display: block;
+        border: 1px solid #738363;
+        height: min(844px, calc(100dvh - 150px));
+        max-width: 100%;
+        background: #171b1a;
+      }
+      p {
+        max-width: 800px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav aria-label="Preview size">
+      <button data-width="390">Phone 390</button
+      ><button data-width="360">Small phone 360</button
+      ><button data-width="720">Tablet 720</button
+      ><button data-width="1200">Desktop 1200</button
+      ><span id="width">390 px</span>
+    </nav>
+    <iframe
+      title="CHORDLAB responsive preview"
+      src="../"
+      width="390"
+      allow="autoplay"
+    ></iframe>
+    <p>
+      This harness gives the app a real, narrow frame viewport so its media
+      queries, fixed transport and responsive melody paging can be checked
+      without changing the host browser's viewport. It does not simulate
+      hardware touch or device audio latency.
+    </p>
+    <script>
+      document.querySelectorAll("[data-width]").forEach(
+        (button) =>
+          (button.onclick = () => {
+            document.querySelector("iframe").width = button.dataset.width;
+            document.getElementById("width").textContent =
+              button.dataset.width + " px";
+          }),
+      );
+    </script>
+  </body>
+</html>

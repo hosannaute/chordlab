@@ -20,6 +20,8 @@ import { AudioEngine } from "./audio.js";
 import { Playback } from "./playback.js";
 import { Piano } from "./piano.js";
 import { LESSONS } from "./lessons.js";
+import { History } from "./history.js";
+import { changeNote, melodyRows, melodyPage, resizeLength } from "./melody.js";
 const $ = (id) => document.getElementById(id);
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -41,9 +43,15 @@ let project = newProject(),
   selectedNote = -1,
   loop = false;
 const audio = new AudioEngine();
-const compact = window.matchMedia("(max-width: 720px)").matches;
-const melodyColumns = compact ? 8 : 16;
+const phoneLayout = window.matchMedia("(max-width: 720px)");
+let compact = phoneLayout.matches;
+let melodyColumns = compact ? 8 : 16;
+const history = new History(project);
+let savedSignature = JSON.stringify(project);
+let gesture = null,
+  suppressMelodyClick = false;
 if (compact) $("octaves").value = "1";
+$("piano-settings-disclosure").open = !compact;
 function report(message, error = false) {
   $("status").textContent = message;
   $("status").classList.toggle("error", error);
@@ -54,7 +62,8 @@ piano.draw();
 const playback = new Playback(
   audio,
   (beat, events) => {
-    $("play").innerHTML = "Ⅱ <span>Playing</span>";
+    $("play").innerHTML = "■ <span>Stop</span>";
+    $("mobile-play").textContent = "■ Stop";
     const active = new Set(
       events.filter((e) => e.track === "chords").map((e) => e.index),
     );
@@ -77,6 +86,7 @@ const playback = new Playback(
   },
   () => {
     $("play").innerHTML = "▶ <span>Play</span>";
+    $("mobile-play").textContent = "▶ Play";
     $("sequence")
       .querySelectorAll(".playing")
       .forEach((n) => n.classList.remove("playing"));
@@ -86,12 +96,19 @@ const playback = new Playback(
     piano.highlight(undefined, undefined, []);
   },
 );
-function changed(message) {
-  dirty = true;
-  $("save-project").textContent = "Save project •";
+function updateHistory() {
+  for (const id of ["undo", "mobile-undo"]) $(id).disabled = !history.canUndo;
+  for (const id of ["redo", "mobile-redo"]) $(id).disabled = !history.canRedo;
+  dirty = JSON.stringify(project) !== savedSignature;
+  $("save-project").textContent = dirty ? "Save project •" : "Save project";
+}
+function changed(message, group = null) {
+  history.record(project, message || "Edit composition", group);
+  updateHistory();
   if (message) report(message);
 }
 function edit() {
+  cancelMelodyGesture();
   playback.stop();
   audio.stop("lesson");
 }
@@ -174,7 +191,15 @@ function drawPalette() {
   );
 }
 function selectControl(labelText, values, current, onChange) {
-  const label = el("label", "", labelText),
+  const label = el(
+      "label",
+      "",
+      labelText.startsWith("CHORD ")
+        ? "LENGTH"
+        : labelText.startsWith("INVERSION ")
+          ? "INVERSION"
+          : labelText,
+    ),
     select = el("select");
   select.setAttribute("aria-label", labelText);
   values.forEach(([value, text]) => select.add(new Option(text, value)));
@@ -294,6 +319,7 @@ function drawSequence(focusIndex = null, focusAction = null) {
 function updateTransport() {
   const empty = !project.progression.length && !project.melody.length;
   $("play").disabled = $("export-midi").disabled = empty;
+  $("mobile-play").disabled = empty;
   $("play-melody").disabled = !project.melody.length;
 }
 function drawMelody(focusCell = null) {
@@ -307,13 +333,27 @@ function drawMelody(focusCell = null) {
       el(
         "span",
         "roll-label beat",
-        col % 2 ? "·" : String(startBeat + col / 2 + 1),
+        col % 2
+          ? "+"
+          : `${Math.floor((startBeat + col / 2) / 4) + 1}.${((col / 2) % 4) + 1}`,
       ),
     );
-  // A two-octave viewport follows the selected keyboard octave; paging exposes all 32 bars.
-  const base = (+$("octave").value + 1) * 12;
-  for (let pitch = Math.min(95, base + 24); pitch >= base; pitch--) {
-    grid.append(el("span", "roll-label", pitchName(pitch)));
+  const rows = melodyRows(
+    project.key,
+    project.mode,
+    +$("melody-octave").value,
+    $("melody-notes").value === "scale",
+    project.melody,
+  );
+  const inScale = scale(project.key, project.mode);
+  for (const pitch of rows) {
+    grid.append(
+      el(
+        "span",
+        "roll-label",
+        `${pitchName(pitch)}${Math.floor(pitch / 12) - 1}`,
+      ),
+    );
     for (let col = 0; col < melodyColumns; col++) {
       const start = startBeat + col / 2;
       const index = project.melody.findIndex(
@@ -324,6 +364,7 @@ function drawMelody(focusCell = null) {
         "",
         `${pitchName(pitch)}${Math.floor(pitch / 12) - 1}, beat ${start + 1}${index >= 0 ? ", edit note" : ", add note"}`,
         () => {
+          if (suppressMelodyClick) return;
           if (index >= 0) {
             selectedNote = index;
             $("note-duration").value = project.melody[index].beats;
@@ -355,15 +396,28 @@ function drawMelody(focusCell = null) {
       b.className = "roll-cell";
       b.dataset.pitch = pitch;
       b.dataset.start = start;
+      b.dataset.noteIndex = index;
       b.setAttribute("aria-pressed", String(index >= 0));
       b.tabIndex = -1;
       if ([1, 3, 6, 8, 10].includes(pitch % 12)) b.classList.add("sharp");
+      if (inScale.includes(pitch % 12)) b.classList.add("scale-tone");
       if (col % 8 === 0) b.classList.add("bar-start");
       if (index >= 0) {
         b.classList.add(
           project.melody[index].start === start ? "on" : "continued",
         );
         if (index === selectedNote) b.classList.add("selected");
+        if (project.melody[index].start === start)
+          b.append(el("span", "roll-note-name", pitchName(pitch)));
+        if (
+          start + 0.5 ===
+          project.melody[index].start + project.melody[index].beats
+        ) {
+          b.classList.add("note-end");
+          const handle = el("span", "resize-handle", "⋮");
+          handle.setAttribute("aria-hidden", "true");
+          b.append(handle);
+        }
       }
       grid.append(b);
     }
@@ -387,11 +441,143 @@ function drawMelody(focusCell = null) {
       `${pitchName(note.pitch)}${Math.floor(note.pitch / 12) - 1} · beat ${note.start + 1} · ${note.beats} beat${note.beats === 1 ? "" : "s"}`;
   $("melody-count").textContent =
     `${project.melody.length} note${project.melody.length === 1 ? "" : "s"} · 4/4 time`;
+  const outside = project.melody.filter(
+    (n) =>
+      !rows.includes(n.pitch) ||
+      n.start + n.beats <= startBeat ||
+      n.start >= startBeat + melodyColumns / 2,
+  ).length;
+  $("melody-view-hint").textContent =
+    `${KEYS[project.key]} ${project.mode} · bar${compact ? "" : "s"} ${$("melody-page").selectedOptions[0]?.textContent || "1"} · + marks a half beat${outside ? ` · ${outside} note${outside === 1 ? "" : "s"} in other bars or octaves` : ""}`;
+  $("melody-deselect").disabled = !note;
   updateTransport();
 }
+function cancelMelodyGesture() {
+  gesture = null;
+  $("melody-grid")
+    .querySelectorAll(".drag-preview, .drag-invalid, .drag-origin")
+    .forEach((n) =>
+      n.classList.remove("drag-preview", "drag-invalid", "drag-origin"),
+    );
+  $("drag-feedback").textContent = "";
+}
+$("melody-grid").addEventListener("pointerdown", (e) => {
+  const cell = e.target.closest("[data-note-index]");
+  if (!cell || +cell.dataset.noteIndex < 0 || e.button !== 0) return;
+  const index = +cell.dataset.noteIndex;
+  gesture = {
+    pointerId: e.pointerId,
+    index,
+    originX: e.clientX,
+    originY: e.clientY,
+    grabStart: +cell.dataset.start,
+    original: { ...project.melody[index] },
+    candidate: null,
+    moved: false,
+    resize: Boolean(e.target.closest(".resize-handle")),
+  };
+  cell.setPointerCapture(e.pointerId);
+});
+$("melody-grid").addEventListener("pointermove", (e) => {
+  if (!gesture || gesture.pointerId !== e.pointerId) return;
+  if (
+    !gesture.moved &&
+    Math.hypot(e.clientX - gesture.originX, e.clientY - gesture.originY) < 6
+  )
+    return;
+  gesture.moved = true;
+  const cell = document
+    .elementFromPoint(e.clientX, e.clientY)
+    ?.closest(".roll-cell");
+  if (!cell || !$("melody-grid").contains(cell)) {
+    gesture.candidate = null;
+    $("drag-feedback").textContent =
+      "Drop inside the grid to change this note.";
+    return;
+  }
+  const patch = gesture.resize
+    ? {
+        beats: resizeLength(+cell.dataset.start + 0.5 - gesture.original.start),
+      }
+    : {
+        start: gesture.original.start + +cell.dataset.start - gesture.grabStart,
+        pitch: +cell.dataset.pitch,
+      };
+  const candidate = { ...gesture.original, ...patch };
+  let error = "";
+  try {
+    changeNote(project.melody, gesture.index, candidate);
+    gesture.candidate = candidate;
+  } catch (e) {
+    error = e.message;
+    gesture.candidate = null;
+  }
+  $("melody-grid")
+    .querySelectorAll(".roll-cell")
+    .forEach((node) => {
+      node.classList.toggle(
+        "drag-origin",
+        +node.dataset.noteIndex === gesture.index,
+      );
+      const inside =
+        +node.dataset.pitch === candidate.pitch &&
+        +node.dataset.start >= candidate.start &&
+        +node.dataset.start < candidate.start + candidate.beats;
+      node.classList.toggle("drag-preview", inside && !error);
+      node.classList.toggle("drag-invalid", inside && Boolean(error));
+    });
+  $("drag-feedback").textContent =
+    error ||
+    `${gesture.resize ? "Resize" : "Move"}: ${pitchName(candidate.pitch)} · beat ${candidate.start + 1} · ${candidate.beats} beats`;
+});
+$("melody-grid").addEventListener("pointerup", (e) => {
+  if (!gesture || gesture.pointerId !== e.pointerId) return;
+  const finished = gesture;
+  cancelMelodyGesture();
+  if (!finished.moved) return;
+  suppressMelodyClick = true;
+  setTimeout(() => {
+    suppressMelodyClick = false;
+  }, 0);
+  if (!finished.candidate) return report("Note kept in its original position.");
+  edit();
+  project.melody = changeNote(
+    project.melody,
+    finished.index,
+    finished.candidate,
+  );
+  selectedNote = finished.index;
+  $("note-duration").value = finished.candidate.beats;
+  changed(
+    finished.resize
+      ? "Resized melody note. Undo is available."
+      : "Moved melody note. Undo is available.",
+  );
+  drawMelody({
+    pitch: finished.candidate.pitch,
+    start: Math.max(
+      finished.candidate.start,
+      (+$("melody-page").value * melodyColumns) / 2,
+    ),
+  });
+});
+$("melody-grid").addEventListener("pointercancel", cancelMelodyGesture);
+$("melody-grid").addEventListener("lostpointercapture", () => {
+  if (gesture) cancelMelodyGesture();
+});
 $("melody-grid").onkeydown = (e) => {
   const cells = [...$("melody-grid").querySelectorAll("button")],
     index = cells.indexOf(e.target);
+  if (
+    index >= 0 &&
+    ["Delete", "Backspace"].includes(e.key) &&
+    +e.target.dataset.noteIndex >= 0
+  ) {
+    e.preventDefault();
+    selectedNote = +e.target.dataset.noteIndex;
+    document.querySelector('[data-note-action="delete"]').click();
+    return;
+  }
   if (
     index < 0 ||
     ![
@@ -473,22 +659,35 @@ function drawLibrary() {
       el("p", "hint", "No saved projects yet. Your next idea starts here."),
     );
 }
-function load(p) {
-  edit();
-  piano.panic();
-  project = p;
-  dirty = false;
-  selectedNote = -1;
+function renderProject() {
+  const p = project;
   $("project-name").value = p.name;
   $("key").value = p.key;
   $("mode").value = p.mode;
   $("tempo").value = p.tempo;
   $("instrument").value = audio.instrument = p.instrument;
-  $("save-project").textContent = "Save project";
   drawPalette();
   drawSequence();
   inspect(p.progression[0] || { degree: 0, seventh: false, inversion: 0 });
   drawMelody();
+  updateHistory();
+}
+function load(p, unsaved = false) {
+  edit();
+  piano.panic();
+  project = p;
+  dirty = false;
+  selectedNote = -1;
+  history.reset(p);
+  savedSignature = unsaved ? null : JSON.stringify(p);
+  if (p.melody.length) {
+    $("melody-octave").value = Math.min(
+      6,
+      Math.max(2, Math.floor(p.melody[0].pitch / 12) - 1),
+    );
+    $("melody-page").value = melodyPage(p.melody[0].start, melodyColumns);
+  }
+  renderProject();
   report(`Opened ${p.name}.`);
 }
 function download(bytes, type, extension) {
@@ -502,16 +701,55 @@ function download(bytes, type, extension) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 KEYS.forEach((name, index) => $("key").add(new Option(name, index)));
-for (let page = 0; page < 256 / melodyColumns; page++)
-  $("melody-page").add(
-    new Option(
-      compact ? String(page + 1) : `${page * 2 + 1}–${page * 2 + 2}`,
-      page,
-    ),
-  );
+function drawMelodyPages(beat = 0) {
+  $("melody-page").replaceChildren();
+  for (let page = 0; page < 256 / melodyColumns; page++)
+    $("melody-page").add(
+      new Option(
+        compact ? String(page + 1) : `${page * 2 + 1}–${page * 2 + 2}`,
+        page,
+      ),
+    );
+  $("melody-page").value = melodyPage(beat, melodyColumns);
+}
+drawMelodyPages();
+phoneLayout.addEventListener("change", () => {
+  const beat = (+$("melody-page").value * melodyColumns) / 2;
+  cancelMelodyGesture();
+  compact = phoneLayout.matches;
+  melodyColumns = compact ? 8 : 16;
+  drawMelodyPages(beat);
+  drawMelody();
+});
+function restoreHistory(direction) {
+  edit();
+  piano.panic();
+  const restored = direction === "undo" ? history.undo() : history.redo();
+  if (!restored) return;
+  project = restored;
+  selectedNote = -1;
+  renderProject();
+  report(direction === "undo" ? "Edit undone." : "Edit restored.");
+}
+$("undo").onclick = () => restoreHistory("undo");
+$("redo").onclick = () => restoreHistory("redo");
+$("mobile-undo").onclick = $("undo").onclick;
+$("mobile-redo").onclick = $("redo").onclick;
+document.addEventListener("keydown", (e) => {
+  if (
+    !(e.ctrlKey || e.metaKey) ||
+    e.altKey ||
+    e.target.closest("input, textarea, select, [contenteditable=true]")
+  )
+    return;
+  if (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y") {
+    e.preventDefault();
+    restoreHistory(e.shiftKey || e.key.toLowerCase() === "y" ? "redo" : "undo");
+  }
+});
 $("project-name").oninput = () => {
   project.name = $("project-name").value.trim() || "Untitled session";
-  changed();
+  changed(undefined, "project-name");
 };
 $("new-project").onclick = () => {
   if (canLeave()) load(newProject());
@@ -519,8 +757,9 @@ $("new-project").onclick = () => {
 $("save-project").onclick = () => {
   try {
     library = saveProject(project);
-    dirty = false;
-    $("save-project").textContent = "Save project";
+    savedSignature = JSON.stringify(project);
+    history.endGroup();
+    updateHistory();
     drawLibrary();
     report(`Saved ${project.name} in this browser.`);
   } catch (e) {
@@ -546,7 +785,7 @@ $("file-input").onchange = async (e) => {
     const parsed = parseProject(await file.text());
     if (canLeave()) {
       parsed.id = crypto.randomUUID();
-      load(parsed);
+      load(parsed, true);
       changed("Imported project. Save to add it to your library.");
     }
   } catch (error) {
@@ -585,6 +824,8 @@ $("stop").onclick = () => {
   piano.panic();
   report("Stopped. All notes released.");
 };
+$("mobile-play").onclick = () => $("play").onclick();
+$("mobile-stop").onclick = () => $("stop").onclick();
 $("play-melody").onclick = () => play("melody");
 $("loop").onclick = () => {
   loop = !loop;
@@ -599,14 +840,14 @@ $("tempo").onchange = () => {
   }
   project.tempo = tempo;
   playback.setTempo(tempo);
-  changed("Tempo updated. New notes follow the new tempo.");
+  changed("Tempo updated. New notes follow the new tempo.", "tempo");
 };
 $("tempo").oninput = () => {
   const tempo = +$("tempo").value;
   if (Number.isInteger(tempo) && tempo >= 40 && tempo <= 220) {
     project.tempo = tempo;
     playback.setTempo(tempo);
-    changed();
+    changed(undefined, "tempo");
   }
 };
 $("key").onchange = () => {
@@ -630,20 +871,12 @@ $("mode").onchange = () => {
   drawPalette();
   drawSequence();
   inspect(selectedChord);
+  drawMelody();
 };
 $("sevenths").onchange = drawPalette;
 $("preset").onchange = () => {
   const type = $("preset").value;
   if (!type) return;
-  if (
-    project.progression.length &&
-    !window.confirm(
-      "Replace the current chord progression with this idea? Your melody will be kept.",
-    )
-  ) {
-    $("preset").value = "";
-    return;
-  }
   edit();
   const minor = type === "minor";
   project.mode = minor ? "minor" : "major";
@@ -661,18 +894,18 @@ $("preset").onchange = () => {
     inversion: 0,
     seventh: type === "jazz",
   }));
-  changed("Progression loaded.");
+  changed("Progression loaded. Undo restores your previous chords.");
   drawPalette();
   drawSequence();
   inspect(project.progression[0]);
+  drawMelody();
   $("preset").value = "";
 };
 $("clear-chords").onclick = () => {
-  if (!project.progression.length || !window.confirm("Clear all chords?"))
-    return;
+  if (!project.progression.length) return;
   edit();
   project.progression = [];
-  changed();
+  changed("Chords cleared. Undo restores them.");
   drawSequence();
 };
 $("preview-chord").onclick = () => hear();
@@ -704,12 +937,21 @@ $("sustain").onclick = () => {
   piano.refreshSustain();
 };
 $("melody-page").onchange = () => drawMelody();
+for (const id of ["melody-octave", "melody-notes"])
+  $(id).onchange = () => {
+    cancelMelodyGesture();
+    drawMelody();
+  };
+$("melody-deselect").onclick = () => {
+  selectedNote = -1;
+  drawMelody();
+};
 $("clear-melody").onclick = () => {
-  if (!project.melody.length || !window.confirm("Clear the melody?")) return;
+  if (!project.melody.length) return;
   edit();
   project.melody = [];
   selectedNote = -1;
-  changed();
+  changed("Melody cleared. Undo restores it.");
   drawMelody();
 };
 $("note-duration").onchange = () => {
@@ -773,6 +1015,10 @@ document.querySelectorAll("[data-note-action]").forEach(
       } else {
         project.melody[selectedNote] = next;
         $("melody-page").value = Math.floor(next.start / (melodyColumns / 2));
+        $("melody-octave").value = Math.min(
+          6,
+          Math.max(2, Math.floor(next.pitch / 12) - 1),
+        );
         piano.tap(next.pitch);
       }
       changed();
@@ -837,11 +1083,13 @@ $("lesson-play").onclick = async () => {
   }
 };
 window.addEventListener("blur", () => {
+  cancelMelodyGesture();
   piano.panic();
   playback.stop();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    cancelMelodyGesture();
     piano.panic();
     playback.stop();
   }
