@@ -41,8 +41,27 @@ let project = newProject(),
   dirty = false,
   selectedChord = { degree: 0, inversion: 0, seventh: false },
   selectedNote = -1,
-  loop = false;
-const audio = new AudioEngine();
+  loop = true;
+let previewRequest = 0,
+  lessonRequest = 0;
+const audio = new AudioEngine({ onStatus: showSoundStatus });
+function showSoundStatus(state) {
+  $("sound-label").textContent =
+    $("instrument").selectedOptions[0]?.textContent || "";
+  const label = $("instrument-status");
+  label.classList.toggle("audio-error", state?.state === "error");
+  if (audio.instrument !== "grand-piano") {
+    label.textContent = "Synthesized instrument · ready to play.";
+    return;
+  }
+  if (state?.state === "loading")
+    label.textContent = `Loading Grand Piano recordings… ${state.loaded}/${state.total}`;
+  else if (state?.state === "error") label.textContent = state.message;
+  else
+    label.textContent = audio.grandReady
+      ? "Grand Piano ready · real Salamander piano recordings."
+      : "Grand Piano · 1.4 MB of recordings load on first play.";
+}
 const phoneLayout = window.matchMedia("(max-width: 720px)");
 let compact = phoneLayout.matches;
 let melodyColumns = compact ? 8 : 16;
@@ -108,8 +127,11 @@ function changed(message, group = null) {
   if (message) report(message);
 }
 function edit() {
+  previewRequest++;
+  lessonRequest++;
   cancelMelodyGesture();
   playback.stop();
+  audio.stop("preview");
   audio.stop("lesson");
 }
 function canLeave() {
@@ -128,14 +150,18 @@ function chordData(c = selectedChord) {
   );
 }
 async function hear(c = selectedChord) {
+  const request = ++previewRequest,
+    generation = audio.generation;
+  const data = chordData(c);
+  audio.stop("preview");
   try {
     await audio.init();
-    audio.stop("preview");
-    const data = chordData(c);
+    if (request !== previewRequest || generation !== audio.generation) return;
     data.notes.forEach((n) =>
       audio.note(n, audio.context.currentTime, 0.8, "preview"),
     );
   } catch (e) {
+    if (request !== previewRequest || generation !== audio.generation) return;
     report(e.message, true);
   }
 }
@@ -666,6 +692,7 @@ function renderProject() {
   $("mode").value = p.mode;
   $("tempo").value = p.tempo;
   $("instrument").value = audio.instrument = p.instrument;
+  showSoundStatus();
   drawPalette();
   drawSequence();
   inspect(p.progression[0] || { degree: 0, seventh: false, inversion: 0 });
@@ -831,7 +858,10 @@ $("loop").onclick = () => {
   loop = !loop;
   playback.loop = loop;
   $("loop").setAttribute("aria-pressed", String(loop));
+  $("loop").textContent = loop ? "↻ Loop on" : "↻ Loop off";
+  $("mobile-loop").setAttribute("aria-pressed", String(loop));
 };
+$("mobile-loop").onclick = () => $("loop").onclick();
 $("tempo").onchange = () => {
   const tempo = +$("tempo").value;
   if (!Number.isInteger(tempo) || tempo < 40 || tempo > 220) {
@@ -909,10 +939,20 @@ $("clear-chords").onclick = () => {
   drawSequence();
 };
 $("preview-chord").onclick = () => hear();
-$("instrument").onchange = () => {
+$("instrument").onchange = async () => {
+  edit();
   piano.panic();
   project.instrument = audio.instrument = $("instrument").value;
+  const instrument = audio.instrument,
+    generation = audio.generation;
+  showSoundStatus();
   changed();
+  try {
+    await audio.init();
+  } catch (error) {
+    if (audio.instrument === instrument && generation === audio.generation)
+      report(error.message, true);
+  }
 };
 $("volume").oninput = () => {
   audio.setVolume(+$("volume").value / 100);
@@ -1031,7 +1071,10 @@ $("lesson").onchange = () => {
 $("lesson-play").onclick = async () => {
   try {
     edit();
+    const request = lessonRequest,
+      generation = audio.generation;
     await audio.init();
+    if (request !== lessonRequest || generation !== audio.generation) return;
     const now = audio.context.currentTime + 0.03,
       root = 60 + project.key;
     const note = (pitch, offset, duration = 0.4) =>

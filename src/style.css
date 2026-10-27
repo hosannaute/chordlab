@@ -1267,3 +1267,35 @@ footer a {
     font-size: 11px;
   }
 }
+#sound-label {
+  color: var(--accent);
+  margin-left: 10px;
+  font-size: 12px;
+}
+.sample-credit {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 8px 0 0;
+}
+.sample-credit a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.audio-error {
+  color: #ffb7ac;
+}
+#mobile-loop {
+  min-width: 44px;
+  padding: 5px;
+  font-size: 22px;
+}
+@media (max-width: 720px) {
+  .mobile-transport {
+    gap: 5px;
+  }
+  .mobile-transport button {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+}

@@ -91,7 +91,7 @@
           <button id="play" class="play-button" aria-label="Play composition">
             ▶ <span>Play</span></button
           ><button id="stop" aria-label="Stop all sound">■</button
-          ><button id="loop" aria-pressed="false">↻ Loop</button>
+          ><button id="loop" aria-pressed="true">↻ Loop on</button>
         </div>
         <div class="tempo-control">
           <label for="tempo">TEMPO</label>
@@ -170,17 +170,21 @@
               <p class="eyebrow">02 / PLAY SOMETHING</p>
               <h2 id="piano-title">Keys, at your fingertips.</h2>
             </div>
-            <span class="small-label">POLYPHONIC SYNTHESIS</span>
+            <span class="small-label">SAMPLED + SYNTHESIZED</span>
           </div>
           <details
             id="piano-settings-disclosure"
             class="piano-settings-disclosure"
           >
-            <summary>Sound &amp; keyboard settings</summary>
+            <summary>
+              Sound &amp; keyboard settings
+              <span id="sound-label">Grand Piano</span>
+            </summary>
             <div class="piano-settings">
               <div>
                 <label for="instrument">SOUND</label
                 ><select id="instrument">
+                  <option value="grand-piano">Grand Piano · sampled</option>
                   <option value="soft-piano">Soft Piano · synth</option>
                   <option value="electric-piano">Electric Piano · synth</option>
                   <option value="synth-pad">Synth Pad</option>
@@ -210,6 +214,32 @@
               </div>
             </div>
           </details>
+          <p id="instrument-status" class="hint" role="status">
+            Grand Piano loads its recordings on first play.
+          </p>
+          <p class="sample-credit">
+            Grand Piano:
+            <a
+              href="https://github.com/sfzinstruments/SalamanderGrandPiano"
+              target="_blank"
+              rel="noreferrer"
+              >Salamander recordings by Alexander Holm</a
+            >
+            ·
+            <a
+              href="https://creativecommons.org/licenses/by/3.0/"
+              target="_blank"
+              rel="noreferrer"
+              >CC BY 3.0</a
+            >
+            ·
+            <a
+              href="./audio/grand-piano/ATTRIBUTION.md"
+              target="_blank"
+              rel="noreferrer"
+              >Sample credits</a
+            >
+          </p>
           <div id="piano" class="piano" aria-label="Playable piano"></div>
           <div class="piano-footer">
             <p class="hint">
@@ -375,6 +405,9 @@
         ▶ Play
       </button>
       <button id="mobile-stop" aria-label="Stop playback">■ Stop</button>
+      <button id="mobile-loop" aria-label="Loop playback" aria-pressed="true">
+        ↻
+      </button>
       <button id="mobile-undo" aria-label="Undo composition edit" disabled>
         ↶
       </button>

@@ -64,6 +64,12 @@ class Context {
     this.oscillators.push(node);
     return node;
   }
+  createBufferSource() {
+    const node = new Node();
+    node.playbackRate = new Parameter();
+    (this.samples ??= []).push(node);
+    return node;
+  }
   createDynamicsCompressor() {
     return {
       ...new Node(),
@@ -135,10 +141,82 @@ function fakeAudio() {
     },
   };
 }
+test("sampled piano uses buffer voices with correct pitch, release and cleanup", () => {
+  const audio = new AudioEngine();
+  audio.context = new Context();
+  audio.master = audio.context.createGain();
+  audio.instrument = "grand-piano";
+  const buffer = {};
+  audio.grandPiano = {
+    get: () => ({ buffer, peak: 0.5, rate: 2 ** (1 / 12) }),
+  };
+  const voice = audio.note(61, 0.02, 0.6, "transport"),
+    [source] = audio.context.samples;
+  assert.equal(source.buffer, buffer);
+  assert.equal(source.playbackRate.value, 2 ** (1 / 12));
+  assert.equal(audio.context.oscillators.length, 0);
+  assert.equal(voice.instrument, "grand-piano");
+  audio.stop();
+  assert.equal(audio.generation, 1);
+  assert.equal(source.stops.at(-1), 0);
+  source.onended();
+  assert.equal(audio.voices.size, 0);
+  assert.equal(source.disconnected, true);
+});
+test("default transport repeats both chords and melody through several complete passes", async () => {
+  const audio = fakeAudio(),
+    playback = new Playback(
+      audio,
+      () => {},
+      () => {},
+    ),
+    project = newProject();
+  project.tempo = 120;
+  project.progression = [{ degree: 0, beats: 1, seventh: false, inversion: 0 }];
+  project.melody = [{ pitch: 72, start: 0, beats: 1 }];
+  await playback.play(project);
+  clearInterval(playback.timer);
+  for (const time of [0.5, 1, 1.5]) {
+    audio.context.currentTime = time;
+    playback.tick();
+  }
+  assert.equal(audio.calls.length, 16);
+  assert.equal(audio.calls.filter((n) => n[0] === 72).length, 4);
+  assert.equal(playback.running, true);
+  playback.stop();
+  const count = audio.calls.length;
+  audio.context.currentTime = 5;
+  playback.tick();
+  assert.equal(audio.calls.length, count);
+});
+test("melody-only playback also loops by default", async () => {
+  const audio = fakeAudio(),
+    playback = new Playback(
+      audio,
+      () => {},
+      () => {},
+    ),
+    project = newProject();
+  project.tempo = 120;
+  project.melody = [{ pitch: 72, start: 0, beats: 1 }];
+  await playback.play(project, undefined, "melody");
+  clearInterval(playback.timer);
+  audio.context.currentTime = 0.5;
+  playback.tick();
+  assert.equal(audio.calls.length, 2);
+  assert.ok(audio.calls.every((n) => n[0] === 72));
+  playback.stop();
+});
 test("non-looping visual playhead does not wrap while release tails finish", async () => {
   const audio = fakeAudio();
   let frame;
-  const playback = new Playback(audio, (beat, events) => { frame = { beat, events }; }, () => {});
+  const playback = new Playback(
+    audio,
+    (beat, events) => {
+      frame = { beat, events };
+    },
+    () => {},
+  );
   const project = newProject();
   project.tempo = 120;
   project.progression = [{ degree: 0, beats: 1, seventh: false, inversion: 0 }];

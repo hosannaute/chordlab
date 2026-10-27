@@ -1,5 +1,19 @@
 # Verification record
 
+## Grand Piano and looping update (2.2)
+
+Verified on 27 October 2026 with Node 24 on Windows and the Chromium-based in-app browser:
+
+- **34 unit tests passed**, including default repeated chord-and-melody passes, melody-only looping, sample pitch mapping, concurrent load/cache behavior, failed-load retries, sampled voice cleanup and SHA-256 verification of all 21 bundled recordings.
+- **Production build passed** with the repository base path and self-hosted sample bank.
+- **8/8 real browser audio checks passed.** All five synth presets passed their existing signal/headroom/tail/cleanup checks. All 21 real MP3 recordings decoded successfully. The sampled four-note test rendered a finite nonzero signal (peak 0.0762), a silent release tail and no retained voices. Cancelling a sampled note before its onset rendered silence and released its graph.
+- The decoded bank occupied **96.0 MiB** at 44.1 kHz in the tested browser; the compressed recordings total 1,355,324 bytes. Device sample rates can change decoded memory use.
+- Actual UI playback stayed running beyond the composition's first pass, with an advancing chord highlight. Melody-only playback also stayed running across repeated passes. Stop reset transport state. Sample-loading progress and the ready message appeared; switching to Soft Piano and back remained available.
+- At real iframe widths **390 and 360 pixels**, document scroll width equaled body width (375 and 345 respectively after scrollbar). All five fixed phone controls fit. The phone Loop button updated both loop controls; Stop returned the transport to its stopped state.
+- No warning/error console entries were returned from the sampled-piano UI test tab. The browser DSP test initially caught an unbound native fetch call; the loader was corrected and the full eight-check harness passed afterward.
+
+These checks render the actual browser audio graph but do not assess subjective sound quality through speakers, physical phone performance or Safari/iOS compatibility. The bank is a compact single-layer selection of acoustic recordings, not the complete Salamander instrument.
+
 ## Usability update
 
 The follow-up usability pass passes **26 unit tests** and a production build. Browser checks used an authored iframe harness with real frame widths, avoiding the unreliable host viewport override from the initial release.
@@ -53,6 +67,6 @@ The initial browser session stalled around a native progression-replacement conf
 1. Run `npm ci`, `npm test`, `npm run build`.
 2. Run `npm run dev`.
 3. Open `http://127.0.0.1:5173/chordlab/docs/audio-check.html` and press **Run audio verification**.
-4. Confirm all six checks pass. Use `localhost` instead of `127.0.0.1` if an unrelated modal has stalled that browser origin.
+4. Confirm all eight checks pass. Use `localhost` instead of `127.0.0.1` if an unrelated modal has stalled that browser origin.
 
 For release/deployment evidence, consult the repository's Test and build and Deploy GitHub Pages workflows; those statuses are separate from the local checks above.

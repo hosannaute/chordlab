@@ -74,10 +74,22 @@ export class Piano {
     }
   }
   async tap(pitch) {
+    const generation = this.audio.generation,
+      instrument = this.audio.instrument;
     try {
       await this.audio.init();
+      if (
+        generation !== this.audio.generation ||
+        instrument !== this.audio.instrument
+      )
+        return;
       this.audio.note(pitch, this.audio.context.currentTime, 0.45, "preview");
     } catch (e) {
+      if (
+        generation !== this.audio.generation ||
+        instrument !== this.audio.instrument
+      )
+        return;
       this.report(e.message, true);
     }
   }

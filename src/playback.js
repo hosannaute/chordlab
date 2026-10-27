@@ -6,7 +6,7 @@ export class Playback {
     this.onStop = onStop;
     this.generation = 0;
   }
-  async play(project, loop, part = "all") {
+  async play(project, loop = true, part = "all") {
     this.stop();
     const generation = this.generation;
     await this.audio.init();
