@@ -29,7 +29,7 @@ Optional `meter: { numerator, denominator }` and `melodyBars` fields extend the 
 
 MIDI uses the selected time-signature meta event and a quarter-note tempo at 960 PPQN. It exports one pass of the longer part and repeats the shorter phrase, clipping notes at the arrangement end. An estimate above 200,000 note events is rejected before expansion. Independent `sustain: { chords, melody }` values extend note gates, clipped at the corresponding loop boundary, in both playback and MIDI. Same-pitch sustained MIDI gates end at the next attack so retriggers remain audible. Missing sustain fields in older saves default to Off for both tracks. App timbres and infinite playback are not embedded in MIDI.
 
-Swing, triplets, mid-song meter changes and automatic accent/metronome patterns are outside this update.
+In 2.6, live tempo changes cancel/requeue future notes and update active note release deadlines. Recording count-in and the metronome use the same quarter-note audio clock; bar accents follow the meter. Swing, triplet grids and mid-song meter changes remain outside the current editor.
 
 ## References and verification
 

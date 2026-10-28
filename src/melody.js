@@ -60,6 +60,18 @@ export function repeatPhrase(project) {
   return {
     ...project,
     melodyBars: (length * 2) / barBeats(project),
+    pedal: {
+      ...project.pedal,
+      chords: [...(project.pedal?.chords || [])],
+      melody: [
+        ...Array.from({ length: length / barBeats(project) }, (_, bar) =>
+          Boolean(project.pedal?.melody?.[bar]),
+        ),
+        ...Array.from({ length: length / barBeats(project) }, (_, bar) =>
+          Boolean(project.pedal?.melody?.[bar]),
+        ),
+      ],
+    },
     melody: [
       ...project.melody.map((n) => ({ ...n })),
       ...project.melody.map((n) => ({ ...n, start: n.start + length })),

@@ -1,5 +1,6 @@
 import { composition, validateProject } from "./project.js";
 import { meterOf } from "./timing.js";
+import { eventDuration, trackGain } from "./studio.js";
 const text = (value) => [...new TextEncoder().encode(value)];
 const PPQ = 960; // Exactly represents every 1/64-quarter position in supported meters.
 const word = (n) => [
@@ -50,7 +51,7 @@ export function exportMidi(project) {
             ...event,
             start,
             beats: Math.min(
-              event.beats + (phrase.sustain || 0),
+              eventDuration(phrase, event),
               beats - start,
               phrase.beats - event.start,
             ),
@@ -88,11 +89,12 @@ export function exportMidi(project) {
     ),
   ];
   ["chords", "melody"].forEach((part, channel) => {
+    if (!trackGain(project.mix, part)) return;
     const notes = events.filter((e) => e.track === part);
     if (!notes.length) return;
     // A fresh attack of the same pitch releases its previous sustained MIDI gate.
     // Keep the attacks audible instead of merging them into one long held note.
-    if (project.sustain?.[part]) {
+    if (project.sustain?.[part] || project.pedal?.[part]?.some(Boolean)) {
       notes.sort((a, b) => a.pitch - b.pitch || a.start - b.start);
       notes.forEach((note, index) => {
         const next = notes[index + 1];
@@ -114,15 +116,62 @@ export function exportMidi(project) {
       {
         tick: 0,
         priority: 0,
-        bytes: [192 + channel, part === "chords" ? 0 : 4],
+        bytes: [
+          192 + channel,
+          {
+            "grand-piano": 0,
+            "soft-piano": 0,
+            "electric-piano": 4,
+            "synth-pad": 89,
+            "plucked-synth": 24,
+            organ: 19,
+          }[project.instrument] ?? 0,
+        ],
+      },
+      {
+        tick: 0,
+        priority: 0,
+        bytes: [
+          176 + channel,
+          7,
+          Math.round(trackGain(project.mix, part) * 127),
+        ],
       },
     ];
+    const phrase = phrases.find((track) => track.name === part);
+    if (phrase?.pedal?.some(Boolean))
+      for (let offset = 0; offset < beats; offset += phrase.beats) {
+        let previous = false;
+        for (
+          let bar = 0;
+          bar * phrase.bar < phrase.beats && offset + bar * phrase.bar < beats;
+          bar++
+        ) {
+          const down = Boolean(phrase.pedal[bar]);
+          if (down !== previous)
+            messages.push({
+              tick: Math.round((offset + bar * phrase.bar) * PPQ),
+              priority: 0,
+              bytes: [176 + channel, 64, down ? 127 : 0],
+            });
+          previous = down;
+        }
+        messages.push({
+          tick: Math.round(Math.min(beats, offset + phrase.beats) * PPQ),
+          priority: 0,
+          bytes: [176 + channel, 64, 0],
+        });
+      }
     merged.forEach((n) =>
       messages.push(
         {
           tick: Math.round(n.start * PPQ),
           priority: 2,
-          bytes: [144 + channel, n.pitch, part === "chords" ? 78 : 96],
+          bytes: [
+            144 + channel,
+            n.pitch,
+            n.velocity ?? (part === "chords" ? 78 : 96),
+          ],
         },
         {
           tick: Math.round((n.start + n.beats) * PPQ),

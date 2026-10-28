@@ -48,6 +48,45 @@ function decode(bytes) {
   assert.equal(tracks.length, view.getUint16(10));
   return tracks;
 }
+test("MIDI honors mute/solo, per-note velocities, mixer volume and pedal-up at the loop boundary", () => {
+  const p = newProject();
+  p.progression = [{ degree: 0, beats: 4, inversion: 0, seventh: false }];
+  p.melody = [
+    { pitch: 72, start: 0, beats: 0.5, velocity: 32 },
+    { pitch: 74, start: 1, beats: 0.5, velocity: 112 },
+  ];
+  p.mix.chords.mute = true;
+  p.mix.melody.volume = 0.5;
+  p.pedal.melody = [true];
+  const tracks = decode(exportMidi(p));
+  assert.equal(tracks.length, 2);
+  assert.deepEqual(
+    tracks[1].filter((e) => e.status === 145).map((e) => e.bytes[1]),
+    [32, 112],
+  );
+  assert.deepEqual(
+    tracks[1]
+      .filter((e) => e.status === 177 && e.bytes[0] === 64)
+      .map((e) => [e.tick, e.bytes[1]]),
+    [
+      [0, 127],
+      [3840, 0],
+    ],
+  );
+  assert.equal(
+    tracks[1].find((e) => e.status === 177 && e.bytes[0] === 7).bytes[1],
+    64,
+  );
+  assert.ok(
+    tracks[1].filter((e) => e.status === 129).every((e) => e.tick === 3840),
+  );
+  p.mix.chords.mute = false;
+  p.mix.chords.solo = true;
+  assert.equal(
+    decode(exportMidi(p)).some((track) => track.some((e) => e.status === 145)),
+    false,
+  );
+});
 test("MIDI preserves independent sustain and repeated attacks at the same pitch", () => {
   const p = newProject();
   p.progression = [0, 4].map((degree) => ({

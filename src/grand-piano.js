@@ -6,6 +6,13 @@ export const GRAND_SAMPLES = Array.from({ length: 21 }, (_, index) => {
       ["C", "Ds", "Fs", "A"][index % 4] + (Math.floor(pitch / 12) - 1) + ".mp3",
   };
 });
+export const LAYER_SAMPLES = GRAND_SAMPLES.flatMap((sample) =>
+  ["soft", "hard"].map((layer) => ({
+    ...sample,
+    key: `${layer}-${sample.pitch}`,
+    file: `layers/${sample.file.replace(".mp3", `-${layer}.mp3`)}`,
+  })),
+);
 export function nearestSample(pitch) {
   if (!Number.isFinite(pitch)) throw new Error("Invalid piano pitch");
   return GRAND_SAMPLES.reduce((best, sample) =>
@@ -26,22 +33,37 @@ export class GrandPiano {
     this.buffers = new Map();
     this.pending = null;
   }
-  async load() {
-    if (this.buffers.size === GRAND_SAMPLES.length) return;
-    if (this.pending) return this.pending;
-    this.pending = this.loadMissing();
+  isReady(layers = false) {
+    return (layers ? LAYER_SAMPLES : GRAND_SAMPLES).every((sample) =>
+      this.buffers.has(sample.key ?? sample.pitch),
+    );
+  }
+  async load(layers = false) {
+    if (this.isReady(layers)) return;
+    if (this.pending) {
+      await this.pending;
+      return this.load(layers);
+    }
+    this.pending = this.loadMissing(layers ? LAYER_SAMPLES : GRAND_SAMPLES);
     try {
       await this.pending;
     } finally {
       this.pending = null;
     }
   }
-  async loadMissing() {
-    const missing = GRAND_SAMPLES.filter(
-      (sample) => !this.buffers.has(sample.pitch),
+  async loadMissing(required = GRAND_SAMPLES) {
+    const missing = required.filter(
+      (sample) => !this.buffers.has(sample.key ?? sample.pitch),
     );
     let index = 0;
-    this.onProgress(this.buffers.size, GRAND_SAMPLES.length);
+    const progress = () =>
+      this.onProgress(
+        required.filter((sample) =>
+          this.buffers.has(sample.key ?? sample.pitch),
+        ).length,
+        required.length,
+      );
+    progress();
     const worker = async () => {
       while (index < missing.length) {
         const sample = missing[index++];
@@ -67,8 +89,8 @@ export class GrandPiano {
           throw new Error(
             `Grand piano sample ${sample.file} has no usable audio.`,
           );
-        this.buffers.set(sample.pitch, { buffer, peak });
-        this.onProgress(this.buffers.size, GRAND_SAMPLES.length);
+        this.buffers.set(sample.key ?? sample.pitch, { buffer, peak });
+        progress();
       }
     };
     // Settle every worker before allowing a retry, so failed loads cannot overlap.
@@ -78,9 +100,12 @@ export class GrandPiano {
     const failed = results.find((result) => result.status === "rejected");
     if (failed) throw failed.reason;
   }
-  get(pitch) {
+  get(pitch, velocity = 96, layers = false) {
     const sample = nearestSample(pitch),
-      decoded = this.buffers.get(sample.pitch);
+      layer = velocity < 80 ? "soft" : "hard",
+      decoded = this.buffers.get(
+        layers ? `${layer}-${sample.pitch}` : sample.pitch,
+      );
     if (!decoded)
       throw new Error(
         "Grand piano is still loading. Wait for the samples or choose a synth sound.",
@@ -88,6 +113,7 @@ export class GrandPiano {
     return {
       ...decoded,
       pitch: sample.pitch,
+      layer: layers ? layer : "compact",
       rate: 2 ** ((pitch - sample.pitch) / 12),
     };
   }

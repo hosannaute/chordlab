@@ -1414,3 +1414,101 @@ footer a {
     padding-right: 9px;
   }
 }
+.studio-tools {
+  margin-bottom: 20px;
+}
+.studio-tools summary {
+  cursor: pointer;
+  font-size: 14px;
+}
+.mixer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 20px 0;
+}
+.mixer-track {
+  min-width: 0;
+}
+.mixer-track > label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+}
+.mixer-track input[type="range"] {
+  width: 100%;
+  margin: 16px 0;
+}
+.pedal-editor label {
+  font-size: 11px;
+}
+.pedal-editor select {
+  width: auto;
+  max-width: 180px;
+}
+.piano-dynamics {
+  margin-top: 18px;
+}
+.piano-dynamics label {
+  font-size: 11px;
+}
+.piano-dynamics input[type="range"] {
+  width: 130px;
+}
+.piano-dynamics select {
+  max-width: 170px;
+}
+.record-controls {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  margin: 18px 0;
+}
+.record-controls select {
+  width: auto;
+  max-width: 140px;
+}
+.record-controls label {
+  font-size: 11px;
+}
+#record-melody {
+  border-color: #ba7969;
+}
+#note-velocity {
+  width: 72px;
+}
+.export-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#wav-cycles {
+  width: auto;
+  max-width: 110px;
+}
+.recovery-library {
+  margin: 20px 0;
+}
+.recovery-library select {
+  max-width: 100%;
+}
+#autosave-status {
+  padding: 0 4px;
+  margin-bottom: 18px;
+}
+@media (max-width: 720px) {
+  .mixer-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .pedal-editor .check {
+    width: 100%;
+  }
+  .piano-dynamics .check {
+    width: 100%;
+  }
+  .export-control {
+    width: 100%;
+  }
+}

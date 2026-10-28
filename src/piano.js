@@ -19,7 +19,13 @@ export class Piano {
       if (!key) return;
       e.preventDefault();
       key.setPointerCapture(e.pointerId);
-      this.press("pointer-" + e.pointerId, +key.dataset.pitch);
+      this.press(
+        "pointer-" + e.pointerId,
+        +key.dataset.pitch,
+        e.pointerType === "pen" && e.pressure > 0
+          ? Math.max(1, Math.round(e.pressure * 127))
+          : undefined,
+      );
     });
     element.addEventListener("click", (e) => {
       if (e.detail === 0) {
@@ -58,7 +64,7 @@ export class Piano {
     });
     this.draw();
   }
-  async press(id, pitch) {
+  async press(id, pitch, velocity = this.audio.piano.velocity) {
     if (this.held.has(id)) return;
     const pending = { pitch, voice: null };
     this.held.set(id, pending);
@@ -66,7 +72,14 @@ export class Piano {
     try {
       await this.audio.init();
       if (this.held.get(id) !== pending) return;
-      pending.voice = this.audio.note(pitch);
+      pending.voice = this.audio.note(
+        pitch,
+        this.audio.context.currentTime,
+        null,
+        "live",
+        { velocity },
+      );
+      this.onNoteOn?.(id, pitch, velocity);
     } catch (error) {
       this.held.delete(id);
       this.highlight();
@@ -86,6 +99,7 @@ export class Piano {
       )
         return;
       this.audio.note(pitch, this.audio.context.currentTime, 0.45, "preview");
+      this.onTap?.(pitch, 0.45, this.audio.piano.velocity);
     } catch (e) {
       if (
         generation !== this.audio.generation ||
@@ -99,6 +113,7 @@ export class Piano {
   release(id) {
     const entry = this.held.get(id);
     if (!entry) return;
+    this.onNoteOff?.(id);
     if (entry.voice) {
       if (this.sustain) this.sustained.add(entry.voice);
       else entry.voice.release();

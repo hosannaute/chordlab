@@ -22,6 +22,9 @@ import {
   parseProject,
 } from "./storage.js";
 import { exportMidi } from "./midi.js";
+import { renderWav } from "./wav.js";
+import { readDrafts, saveDraft, recoverableDraft } from "./recovery.js";
+import { MelodyRecorder } from "./recorder.js";
 import { AudioEngine } from "./audio.js";
 import { Playback } from "./playback.js";
 import { Piano } from "./piano.js";
@@ -65,10 +68,17 @@ let project = newProject(),
   selectedChord = { degree: 0, inversion: 0, seventh: false },
   selectedNote = -1,
   loop = true;
+let recorder = null,
+  recordRequest = 0,
+  recordPending = false,
+  exporting = false,
+  draftTimer = null;
 let previewRequest = 0,
   lessonRequest = 0;
 const audio = new AudioEngine({ onStatus: showSoundStatus });
 function showSoundStatus(state) {
+  $("piano-layers").disabled = $("piano-release").disabled =
+    audio.instrument !== "grand-piano";
   $("sound-label").textContent =
     $("instrument").selectedOptions[0]?.textContent || "";
   const label = $("instrument-status");
@@ -83,7 +93,9 @@ function showSoundStatus(state) {
   else
     label.textContent = audio.grandReady
       ? "Grand Piano ready · real Salamander piano recordings."
-      : "Grand Piano · 1.4 MB of recordings load on first play.";
+      : audio.piano.layers
+        ? "Expressive Grand Piano · soft/hard recordings load on first play."
+        : "Grand Piano · 1.4 MB of recordings load on first play.";
 }
 const phoneLayout = window.matchMedia("(max-width: 720px)");
 let compact = phoneLayout.matches;
@@ -106,6 +118,17 @@ piano.draw();
 const playback = new Playback(
   audio,
   (beat, events, melodyBeat = beat) => {
+    if (recorder) {
+      const current = playback.currentBeat();
+      if (current >= recorder.length) {
+        finishRecording();
+        return;
+      }
+      $("record-status").textContent =
+        current < 0
+          ? `Count-in · ${Math.ceil(-current / playback.clickStep)}`
+          : `Recording · bar ${Math.floor(current / barBeats(project)) + 1}. Play the piano keys; this take ends after the current phrase.`;
+    }
     $("play").innerHTML = "■ <span>Stop</span>";
     $("mobile-play").textContent = "■ Stop";
     const follow = $("melody-follow").checked && project.melody.length;
@@ -173,15 +196,122 @@ function updateHistory() {
 function changed(message, group = null) {
   history.record(project, message || "Edit composition", group);
   updateHistory();
+  queueDraft();
   if (message) report(message);
 }
 function edit() {
+  recordRequest++;
+  finishRecording(false);
   previewRequest++;
   lessonRequest++;
   cancelMelodyGesture();
   playback.stop();
   audio.stop("preview");
   audio.stop("lesson");
+}
+function drawDrafts() {
+  try {
+    const previous = $("draft-list").value,
+      drafts = readDrafts();
+    $("draft-list").replaceChildren(
+      ...drafts
+        .slice()
+        .reverse()
+        .map(
+          (draft) =>
+            new Option(
+              `${draft.project.name} · ${new Date(draft.updatedAt).toLocaleString()}`,
+              draft.project.id,
+            ),
+        ),
+    );
+    if (drafts.some((draft) => draft.project.id === previous))
+      $("draft-list").value = previous;
+    $("recover-draft").disabled = !drafts.length;
+  } catch (error) {
+    $("autosave-status").textContent = error.message;
+  }
+}
+function flushDraft() {
+  clearTimeout(draftTimer);
+  try {
+    saveDraft(project, savedSignature);
+    $("autosave-status").textContent =
+      "Recovery draft saved in this browser · " +
+      new Date().toLocaleTimeString();
+    drawDrafts();
+    return true;
+  } catch (error) {
+    $("autosave-status").textContent =
+      `Automatic recovery unavailable: ${error.message} Use Export JSON to keep a backup.`;
+    return false;
+  }
+}
+function queueDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(flushDraft, 400);
+}
+function setTakeEditing(locked) {
+  document.querySelector(".melody-panel").inert = locked;
+  for (const id of [
+    "key",
+    "mode",
+    "meter-numerator",
+    "meter-denominator",
+    "count-in",
+  ])
+    $(id).disabled = locked;
+}
+function finishRecording(stop = true) {
+  if (!recorder) return;
+  const take = recorder;
+  recorder = null;
+  setTakeEditing(false);
+  try {
+    const notes = take.finish(Math.max(0, playback.currentBeat()));
+    project.melody = validateProject({ ...project, melody: notes }).melody;
+    selectedNote = -1;
+    changed("Melody take recorded. Undo restores the previous melody.");
+    flushDraft();
+    drawMelodyPages();
+    drawMelody();
+    $("record-status").textContent =
+      "Take recorded. Press Play to listen, or Undo to restore the previous melody.";
+  } catch (error) {
+    report(error.message, true);
+    $("record-status").textContent = error.message;
+  }
+  $("record-melody").disabled = false;
+  $("finish-recording").disabled = true;
+  $("count-in").disabled = false;
+  if (stop) {
+    playback.stop();
+    piano.panic();
+  }
+}
+function drawPedal() {
+  const part = $("pedal-track").value,
+    previous = +$("pedal-bar").value || 0;
+  const length =
+    part === "melody"
+      ? melodyLength(project) || barBeats(project)
+      : project.progression.reduce((sum, chord) => sum + chord.beats, 0);
+  const bars = Math.min(
+    1024,
+    Math.max(1, Math.ceil(length / barBeats(project))),
+  );
+  $("pedal-bar").replaceChildren(
+    ...Array.from({ length: bars }, (_, index) => new Option(index + 1, index)),
+  );
+  $("pedal-bar").value = Math.min(previous, bars - 1);
+  $("pedal-down").checked = Boolean(
+    project.pedal?.[part]?.[+$("pedal-bar").value],
+  );
+  const down = (project.pedal?.[part] || [])
+    .slice(0, bars)
+    .flatMap((value, index) => (value ? [index + 1] : []));
+  $("pedal-summary").textContent =
+    `${part === "chords" ? "Chords" : "Melody"}: ${down.length ? `pedal down in bar${down.length === 1 ? "" : "s"} ${down.slice(0, 16).join(", ")}${down.length > 16 ? "…" : ""}` : "no pedal changes"}. Notes ring until a pedal-up bar; the phrase boundary clears the pedal.`;
 }
 function canLeave() {
   return (
@@ -358,6 +488,19 @@ function drawSequence(focusIndex = null, focusAction = null) {
             hear(c);
           },
         ),
+        selectControl(
+          `VELOCITY ${i + 1}`,
+          [...new Set([48, 64, 78, 96, 112, 127, c.velocity ?? 78])]
+            .sort((a, b) => a - b)
+            .map((value) => [value, String(value)]),
+          c.velocity ?? 78,
+          (value) => {
+            edit();
+            c.velocity = +value;
+            changed("Chord velocity updated.");
+            drawSequence(i, "velocity");
+          },
+        ),
       );
       const actions = el("div", "chord-actions");
       for (const [text, name] of [
@@ -416,7 +559,9 @@ function drawSequence(focusIndex = null, focusAction = null) {
         ? card.querySelector("select")
         : focusAction === "inversion"
           ? card.querySelectorAll("select")[1]
-          : card.querySelector(`[data-action="${focusAction}"]`);
+          : focusAction === "velocity"
+            ? card.querySelectorAll("select")[2]
+            : card.querySelector(`[data-action="${focusAction}"]`);
     (target?.disabled ? card.querySelector("button") : target)?.focus();
   }
 }
@@ -425,6 +570,7 @@ function updateTransport() {
   $("play").disabled = $("export-midi").disabled = empty;
   $("mobile-play").disabled = empty;
   $("play-melody").disabled = !project.melody.length;
+  $("export-wav").disabled = empty || exporting;
 }
 function drawMelody(focusCell = null) {
   if (
@@ -509,7 +655,12 @@ function drawMelody(focusCell = null) {
                 true,
               );
             edit();
-            project.melody.push({ pitch, start, beats });
+            project.melody.push({
+              pitch,
+              start,
+              beats,
+              velocity: project.piano.velocity,
+            });
             selectedNote = project.melody.length - 1;
             changed("Melody note added.");
             piano.tap(pitch);
@@ -564,6 +715,7 @@ function drawMelody(focusCell = null) {
   if (note)
     $("selected-note").textContent =
       `${pitchName(note.pitch)}${Math.floor(note.pitch / 12) - 1} · bar:beat ${positionLabel(note.start, project)} · ${note.beats} quarter beats`;
+  if (note) $("note-velocity").value = note.velocity ?? 96;
   $("melody-count").textContent =
     `${project.melody.length} / 512 notes · ${meterOf(project).numerator}/${meterOf(project).denominator} time`;
   const outside = project.melody.filter(
@@ -579,6 +731,7 @@ function drawMelody(focusCell = null) {
   updateTransport();
 }
 function updateLoopSummary() {
+  drawPedal();
   const page = +$("melody-page").value || 0;
   const phrase = melodyLength(project) || barBeats(project);
   const chordLength = project.progression.reduce((sum, c) => sum + c.beats, 0);
@@ -817,6 +970,33 @@ function renderProject() {
   $("mode").value = p.mode;
   $("tempo").value = p.tempo;
   $("instrument").value = audio.instrument = p.instrument;
+  audio.piano = { ...p.piano };
+  audio.setMix(p.mix);
+  audio.setVolume(p.masterVolume);
+  $("volume").value = Math.round(p.masterVolume * 100);
+  $("volume-label").textContent = Math.round(p.masterVolume * 100) + "%";
+  for (const part of ["chords", "melody"]) {
+    $(part + "-volume").value = Math.round(p.mix[part].volume * 100);
+    $(part + "-volume-label").textContent =
+      Math.round(p.mix[part].volume * 100) + "%";
+    for (const setting of ["mute", "solo"])
+      $(part + "-" + setting).setAttribute(
+        "aria-pressed",
+        String(p.mix[part][setting]),
+      );
+  }
+  $("piano-layers").checked = p.piano.layers;
+  $("live-velocity").value = p.piano.velocity;
+  $("live-velocity-label").textContent = p.piano.velocity;
+  if (
+    ![...$("piano-release").options].some(
+      (option) => +option.value === p.piano.release,
+    )
+  )
+    $("piano-release").add(new Option(`${p.piano.release}s`, p.piano.release));
+  $("piano-release").value = p.piano.release;
+  $("metronome").checked = p.metronome.enabled;
+  $("count-in").value = p.metronome.countIn;
   showSoundStatus();
   $("meter-numerator").value = meterOf(p).numerator;
   $("meter-denominator").value = meterOf(p).denominator;
@@ -834,7 +1014,8 @@ function renderProject() {
 function load(p, unsaved = false) {
   edit();
   piano.panic();
-  project = p;
+  project = validateProject(p);
+  p = project;
   dirty = false;
   selectedNote = -1;
   history.reset(p);
@@ -847,14 +1028,15 @@ function load(p, unsaved = false) {
     drawMelodyPages(p.melody[0].start);
   }
   renderProject();
+  queueDraft();
   report(`Opened ${p.name}.`);
 }
-function download(bytes, type, extension) {
+function download(bytes, type, extension, name = project.name) {
   const url = URL.createObjectURL(new Blob([bytes], { type })),
     link = document.createElement("a");
   link.href = url;
   link.download =
-    (project.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 60) || "chordlab") +
+    (name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 60) || "chordlab") +
     extension;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -994,12 +1176,14 @@ $("new-project").onclick = () => {
   if (canLeave()) load(newProject());
 };
 $("save-project").onclick = () => {
+  finishRecording();
   try {
     library = saveProject(project);
     savedSignature = JSON.stringify(project);
     history.endGroup();
     updateHistory();
     drawLibrary();
+    flushDraft();
     report(`Saved ${project.name} in this browser.`);
   } catch (e) {
     report(`Could not save: ${e.message} Export JSON to keep a backup.`, true);
@@ -1012,8 +1196,10 @@ $("projects-toggle").onclick = () => {
     String(!$("library").hidden),
   );
 };
-$("export-json").onclick = () =>
+$("export-json").onclick = () => {
+  finishRecording();
   download(JSON.stringify(project, null, 2), "application/json", ".json");
+};
 $("import-json").onclick = () => $("file-input").click();
 $("file-input").onchange = async (e) => {
   const file = e.target.files[0];
@@ -1033,6 +1219,7 @@ $("file-input").onchange = async (e) => {
   e.target.value = "";
 };
 $("export-midi").onclick = () => {
+  finishRecording();
   try {
     download(exportMidi(project), "audio/midi", ".mid");
     report("MIDI exported with tempo and separate composition tracks.");
@@ -1059,6 +1246,9 @@ $("play").onclick = () => {
   } else play();
 };
 $("stop").onclick = () => {
+  recordRequest++;
+  finishRecording(false);
+  setTakeEditing(false);
   playback.stop();
   piano.panic();
   report("Stopped. All notes released.");
@@ -1164,8 +1354,10 @@ $("instrument").onchange = async () => {
   }
 };
 $("volume").oninput = () => {
-  audio.setVolume(+$("volume").value / 100);
+  project.masterVolume = +$("volume").value / 100;
+  audio.setVolume(project.masterVolume);
   $("volume-label").textContent = $("volume").value + "%";
+  changed(undefined, "master-volume");
 };
 for (const id of ["octave", "octaves"])
   $(id).onchange = () => {
@@ -1249,6 +1441,7 @@ $("melody-repeat").onclick = () => {
     edit();
     project.melody = next.melody;
     project.melodyBars = next.melodyBars;
+    project.pedal.melody = next.pedal.melody;
     selectedNote = -1;
     drawMelodyPages(previous);
     changed("Repeated the phrase with editable copies of its notes.");
@@ -1440,27 +1633,247 @@ $("lesson-play").onclick = async () => {
     report(e.message, true);
   }
 };
+piano.onNoteOn = (id, pitch, velocity) => {
+  if (recorder && playback.running)
+    recorder.start(id, pitch, playback.currentBeat(), velocity);
+};
+piano.onNoteOff = (id) => {
+  if (recorder && playback.running) recorder.end(id, playback.currentBeat());
+};
+piano.onTap = (pitch, seconds, velocity) => {
+  if (!recorder || !playback.running) return;
+  const id = "tap-" + crypto.randomUUID(),
+    beat = playback.currentBeat();
+  recorder.start(id, pitch, beat, velocity);
+  recorder.end(id, beat + (seconds * project.tempo) / 60);
+};
+$("record-melody").onclick = async () => {
+  if (recordPending || recorder) return;
+  edit();
+  piano.panic();
+  const request = ++recordRequest;
+  recordPending = true;
+  selectedNote = -1;
+  drawMelody();
+  setTakeEditing(true);
+  $("record-melody").disabled = true;
+  $("finish-recording").disabled = false;
+  $("count-in").disabled = true;
+  $("record-status").textContent = "Preparing recording…";
+  try {
+    audio.piano = { ...project.piano };
+    await audio.init();
+    if (request !== recordRequest) return;
+    recorder = new MelodyRecorder(project, melodyStep);
+    await playback.play(structuredClone(project), false, "all", {
+      countIn: true,
+      recording: true,
+    });
+    if (request !== recordRequest) {
+      finishRecording();
+      return;
+    }
+    report(
+      "Recording one melody phrase. Play the piano keys after the count-in.",
+    );
+  } catch (error) {
+    recorder = null;
+    playback.stop();
+    report(error.message, true);
+    $("record-status").textContent = error.message;
+  } finally {
+    recordPending = false;
+    $("record-melody").disabled = Boolean(recorder);
+    $("finish-recording").disabled = !recorder;
+    $("count-in").disabled = Boolean(recorder);
+    setTakeEditing(Boolean(recorder));
+  }
+};
+$("finish-recording").onclick = () => {
+  recordRequest++;
+  finishRecording();
+  setTakeEditing(false);
+  if (!recorder) {
+    playback.stop();
+    $("record-status").textContent = recordPending
+      ? "Recording cancelled before it started."
+      : $("record-status").textContent;
+  }
+};
+for (const part of ["chords", "melody"]) {
+  $(part + "-volume").oninput = () => {
+    project.mix[part].volume = +$(part + "-volume").value / 100;
+    $(part + "-volume-label").textContent = $(part + "-volume").value + "%";
+    audio.setMix(project.mix);
+    changed(undefined, part + "-volume");
+  };
+  for (const setting of ["mute", "solo"])
+    $(part + "-" + setting).onclick = () => {
+      project.mix[part][setting] = !project.mix[part][setting];
+      $(part + "-" + setting).setAttribute(
+        "aria-pressed",
+        String(project.mix[part][setting]),
+      );
+      audio.setMix(project.mix);
+      changed(
+        `${part} ${setting} ${project.mix[part][setting] ? "on" : "off"}.`,
+      );
+    };
+}
+$("metronome").onchange = () => {
+  project.metronome.enabled = $("metronome").checked;
+  playback.setMetronome(project.metronome.enabled);
+  changed("Metronome updated.");
+};
+$("count-in").onchange = () => {
+  project.metronome.countIn = +$("count-in").value;
+  changed("Recording count-in updated.");
+};
+$("live-velocity").oninput = () => {
+  project.piano.velocity = +$("live-velocity").value;
+  audio.piano.velocity = project.piano.velocity;
+  $("live-velocity-label").textContent = project.piano.velocity;
+  changed(undefined, "live-velocity");
+};
+$("piano-layers").onchange = () => {
+  const layers = $("piano-layers").checked;
+  edit();
+  piano.panic();
+  project.piano.layers = layers;
+  audio.piano = { ...project.piano };
+  changed("Piano dynamics updated. Recordings load on the next play.");
+  showSoundStatus();
+};
+$("piano-release").onchange = () => {
+  edit();
+  piano.panic();
+  project.piano.release = +$("piano-release").value;
+  audio.piano = { ...project.piano };
+  changed("Piano release updated.");
+};
+$("note-velocity").onchange = () => {
+  const value = +$("note-velocity").value;
+  if (selectedNote < 0) return;
+  if (!Number.isInteger(value) || value < 1 || value > 127) {
+    $("note-velocity").value = project.melody[selectedNote].velocity ?? 96;
+    return report("Velocity must be 1–127.", true);
+  }
+  edit();
+  project.melody[selectedNote].velocity = value;
+  changed("Melody velocity updated.");
+  drawMelody();
+};
+$("pedal-track").onchange = drawPedal;
+$("pedal-bar").onchange = drawPedal;
+$("pedal-down").onchange = () => {
+  const part = $("pedal-track").value,
+    bar = +$("pedal-bar").value,
+    down = $("pedal-down").checked;
+  edit();
+  while (project.pedal[part].length <= bar) project.pedal[part].push(false);
+  project.pedal[part][bar] = down;
+  changed("Pedal pattern updated.");
+  drawPedal();
+};
+$("pedal-all").onclick = () => {
+  const part = $("pedal-track").value,
+    bars = $("pedal-bar").options.length;
+  edit();
+  project.pedal[part] = Array(bars).fill(true);
+  changed("Pedal holds through this phrase; the loop boundary releases it.");
+  drawPedal();
+};
+$("pedal-clear").onclick = () => {
+  const part = $("pedal-track").value;
+  edit();
+  project.pedal[part] = [];
+  changed("Pedal pattern cleared.");
+  drawPedal();
+};
+$("recover-draft").onclick = () => {
+  try {
+    const draft = readDrafts().find(
+      (item) => item.project.id === $("draft-list").value,
+    );
+    if (draft && canLeave()) {
+      load(draft.project, true);
+      savedSignature = draft.savedSignature;
+      updateHistory();
+      queueDraft();
+      report("Opened recovery draft. Your manual library save is unchanged.");
+    }
+  } catch (error) {
+    report(error.message, true);
+  }
+};
+$("export-wav").onclick = async () => {
+  if (exporting) return;
+  edit();
+  const snapshot = structuredClone(project);
+  exporting = true;
+  updateTransport();
+  $("export-wav").textContent = "Rendering…";
+  try {
+    const bytes = await renderWav(snapshot, {
+      cycles: +$("wav-cycles").value,
+      bank: audio.grandPiano,
+      masterVolume: audio.volume,
+      onProgress: report,
+    });
+    download(bytes, "audio/wav", ".wav", snapshot.name);
+    report(
+      "WAV exported with the selected sound, dynamics, mixer and pedal. Count-in and metronome are excluded.",
+    );
+  } catch (error) {
+    report(error.message, true);
+  } finally {
+    exporting = false;
+    $("export-wav").textContent = "↓ Export WAV";
+    updateTransport();
+  }
+};
 window.addEventListener("blur", () => {
+  recordRequest++;
+  finishRecording(false);
+  flushDraft();
   cancelMelodyGesture();
   piano.panic();
   playback.stop();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    recordRequest++;
+    finishRecording(false);
+    flushDraft();
     cancelMelodyGesture();
     piano.panic();
     playback.stop();
   }
 });
 window.addEventListener("beforeunload", (e) => {
-  if (dirty) {
+  recordRequest++;
+  finishRecording(false);
+  if (dirty && !flushDraft()) {
     e.preventDefault();
     e.returnValue = "";
   }
 });
+let recovery = null;
+try {
+  recovery = recoverableDraft(readDrafts());
+} catch (error) {
+  $("autosave-status").textContent = error.message;
+}
 try {
   library = readProjects();
-  if (library.length) load(structuredClone(library.at(-1)));
+  if (recovery) {
+    load(recovery.project, true);
+    savedSignature = recovery.savedSignature;
+    updateHistory();
+    report(
+      "Recovered your latest unfinished draft. Save project adds it to the library.",
+    );
+  } else if (library.length) load(structuredClone(library.at(-1)));
   else load(project);
 } catch (e) {
   load(project);
@@ -1470,4 +1883,5 @@ try {
   );
 }
 drawLibrary();
+drawDrafts();
 $("lesson").onchange();

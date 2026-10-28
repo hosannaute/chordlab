@@ -1,4 +1,5 @@
 import { INTERVALS, resolveChord, mod } from "./theory.js";
+import { defaultStudio, validateStudio, trackSettings } from "./studio.js";
 import {
   DENOMINATORS,
   MIN_STEP,
@@ -26,6 +27,7 @@ export const newProject = () => ({
   meter: { numerator: 4, denominator: 4 },
   melodyBars: 1,
   sustain: { chords: 0, melody: 0 },
+  ...defaultStudio(),
   progression: [0, 4, 5, 3].map((degree) => ({
     degree,
     beats: 4,
@@ -61,6 +63,8 @@ export function validateProject(p) {
       "Choose a time signature from 1–32 over 1, 2, 4, 8, 16 or 32.",
     );
   const melodyBars = p.melodyBars === undefined ? 0 : p.melodyBars;
+  const studio = validateStudio(p);
+  const velocity = (value) => value === undefined || integer(value, 1, 127);
   const sustain =
     p.sustain === undefined ? { chords: 0, melody: 0 } : p.sustain;
   if (
@@ -91,7 +95,8 @@ export function validateProject(p) {
         !Object.hasOwn(INTERVALS, c.quality) ||
         !integer(c.inversion, 0, INTERVALS[c.quality].length - 1) ||
         !number(c.beats, MIN_STEP, MAX_BEATS) ||
-        (c.beats / MIN_STEP) % 1
+        (c.beats / MIN_STEP) % 1 ||
+        !velocity(c.velocity)
       )
         throw new Error("Invalid custom chord in project.");
       const valid = {
@@ -100,6 +105,7 @@ export function validateProject(p) {
         quality: c.quality,
         beats: c.beats,
         inversion: c.inversion,
+        ...(c.velocity === undefined ? {} : { velocity: c.velocity }),
       };
       if (c.sourceKey !== undefined || c.sourceMode !== undefined) {
         if (
@@ -119,7 +125,8 @@ export function validateProject(p) {
       !number(c.beats, MIN_STEP, MAX_BEATS) ||
       (c.beats / MIN_STEP) % 1 ||
       typeof c.seventh !== "boolean" ||
-      !integer(c.inversion, 0, c.seventh ? 3 : 2)
+      !integer(c.inversion, 0, c.seventh ? 3 : 2) ||
+      !velocity(c.velocity)
     )
       throw new Error("Invalid chord in project.");
     return {
@@ -127,6 +134,7 @@ export function validateProject(p) {
       beats: c.beats,
       seventh: c.seventh,
       inversion: c.inversion,
+      ...(c.velocity === undefined ? {} : { velocity: c.velocity }),
     };
   });
   const melody = p.melody.map((n) => {
@@ -136,10 +144,16 @@ export function validateProject(p) {
       !number(n.start, 0, MAX_BEATS - MIN_STEP) ||
       (n.start / MIN_STEP) % 1 ||
       !validNoteLength(n.beats) ||
-      n.start + n.beats > 128
+      n.start + n.beats > 128 ||
+      !velocity(n.velocity)
     )
       throw new Error("Invalid melody note in project.");
-    return { pitch: n.pitch, start: n.start, beats: n.beats };
+    return {
+      pitch: n.pitch,
+      start: n.start,
+      beats: n.beats,
+      ...(n.velocity === undefined ? {} : { velocity: n.velocity }),
+    };
   });
   const phrase = melodyLength({ meter, melodyBars, melody });
   if (phrase > MAX_BEATS || melody.some((n) => n.start + n.beats > phrase))
@@ -159,6 +173,7 @@ export function validateProject(p) {
     meter: { numerator: meter.numerator, denominator: meter.denominator },
     melodyBars,
     sustain: { chords: sustain.chords, melody: sustain.melody },
+    ...studio,
     progression,
     melody,
   };
@@ -253,22 +268,25 @@ export function composition(project, part = "all") {
           beats: c.beats,
           track: "chords",
           index,
+          velocity: c.velocity ?? 78,
         }),
       );
     cursor += c.beats;
   });
   if (part !== "chords")
-    project.melody.forEach((n) => events.push({ ...n, track: "melody" }));
+    project.melody.forEach((n) =>
+      events.push({ ...n, velocity: n.velocity ?? 96, track: "melody" }),
+    );
   const tracks = [
     {
       name: "chords",
-      sustain: project.sustain?.chords || 0,
+      ...trackSettings(project, "chords"),
       beats: cursor,
       events: events.filter((e) => e.track === "chords"),
     },
     {
       name: "melody",
-      sustain: project.sustain?.melody || 0,
+      ...trackSettings(project, "melody"),
       beats: melodyLength(project),
       events: events.filter((e) => e.track === "melody"),
     },
