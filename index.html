@@ -180,6 +180,19 @@
             </select>
           </div>
           <p id="chord-palette-hint" class="hint"></p>
+          <div class="row track-sustain">
+            <label for="chord-sustain">CHORD SUSTAIN</label>
+            <select id="chord-sustain">
+              <option value="0">Off</option>
+              <option value="0.5">Short · +½ beat</option>
+              <option value="1">Medium · +1 beat</option>
+              <option value="2">Long · +2 beats</option>
+            </select>
+            <span class="hint"
+              >Let chords ring after their written length. Clears at the chord
+              loop.</span
+            >
+          </div>
           <details class="custom-chord-panel" open>
             <summary>Build any chord · passing tones, dim &amp; aug</summary>
             <div class="row custom-chord-controls">
@@ -369,14 +382,7 @@
               <label for="melody-page">BARS</label
               ><select id="melody-page"></select
               ><label for="note-duration">NOTE LENGTH</label
-              ><select id="note-duration">
-                <option value="0.125">1/32 note</option>
-                <option value="0.25">1/16 note</option>
-                <option value="0.5">1/8 note</option>
-                <option value="1" selected>1/4 note</option>
-                <option value="2">1/2 note</option>
-                <option value="4">Whole note</option>
-              </select>
+              ><select id="note-duration"></select>
             </div>
           </div>
           <div class="melody-view-controls row">
@@ -384,9 +390,9 @@
             ><select id="melody-bars"></select>
             <label for="melody-step">GRID</label
             ><select id="melody-step">
-              <option value="0.5">1/8 notes</option>
-              <option value="0.25">1/16 notes</option>
-              <option value="0.125">1/32 notes</option>
+              <option value="8">8 positions / bar</option>
+              <option value="16">16 positions / bar</option>
+              <option value="32">32 positions / bar</option>
             </select>
             <label class="follow-control"
               ><input id="melody-follow" type="checkbox" checked /> Follow
@@ -405,6 +411,19 @@
             <button id="chords-to-bars">One bar per chord</button>
           </div>
           <p id="loop-summary" class="hint" aria-live="polite"></p>
+          <div class="row track-sustain">
+            <label for="melody-sustain">MELODY SUSTAIN</label>
+            <select id="melody-sustain">
+              <option value="0">Off</option>
+              <option value="0.5">Short · +½ beat</option>
+              <option value="1">Medium · +1 beat</option>
+              <option value="2">Long · +2 beats</option>
+            </select>
+            <span class="hint"
+              >Let melody notes ring after their written length. Clears at the
+              melody loop.</span
+            >
+          </div>
           <div class="melody-view-controls row">
             <label for="melody-octave">MELODY OCTAVE</label>
             <select id="melody-octave">

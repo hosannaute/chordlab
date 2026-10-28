@@ -7,7 +7,7 @@ function decode(bytes) {
   const tracks = [];
   assert.equal(new TextDecoder().decode(bytes.slice(0, 4)), "MThd");
   assert.equal(view.getUint16(8), 1);
-  assert.equal(view.getUint16(12), 480);
+  assert.equal(view.getUint16(12), 960);
   let pos = 14;
   const variable = () => {
     let n = 0,
@@ -33,7 +33,7 @@ function decode(bytes) {
         events.push({ tick, type, bytes: [...bytes.slice(pos, pos + length)] });
         pos += length;
       } else {
-        const length = (status & 240) === 192 ? 1 : 2;
+        const length = (status & 480) === 192 ? 1 : 2;
         events.push({
           tick,
           status,
@@ -48,6 +48,46 @@ function decode(bytes) {
   assert.equal(tracks.length, view.getUint16(10));
   return tracks;
 }
+test("MIDI preserves independent sustain and repeated attacks at the same pitch", () => {
+  const p = newProject();
+  p.progression = [0, 4].map((degree) => ({
+    degree,
+    beats: 2,
+    inversion: 0,
+    seventh: false,
+  }));
+  p.melody = [0, 1].map((start) => ({ pitch: 80, start, beats: 0.5 }));
+  p.sustain = { chords: 0.5, melody: 2 };
+  const tracks = decode(exportMidi(p));
+  assert.equal(
+    tracks[1].find((e) => e.status === 128 && e.bytes[0] === 48).tick,
+    2400,
+  );
+  assert.deepEqual(
+    tracks[2].filter((e) => e.status === 145).map((e) => e.tick),
+    [0, 960],
+  );
+  assert.deepEqual(
+    tracks[2].filter((e) => e.status === 129).map((e) => e.tick),
+    [960, 3360],
+  );
+});
+test("the shortest supported bar exports eight exactly spaced notes without MIDI rounding", () => {
+  const p = newProject();
+  p.progression = [];
+  p.meter = { numerator: 1, denominator: 32 };
+  p.melody = Array.from({ length: 8 }, (_, index) => ({
+    pitch: 80 + index,
+    start: index / 64,
+    beats: 1 / 64,
+  }));
+  const track = decode(exportMidi(p))[1];
+  assert.deepEqual(
+    track.filter((e) => e.status === 145).map((e) => e.tick),
+    [0, 15, 30, 45, 60, 75, 90, 105],
+  );
+  assert.equal(track.at(-1).tick, 120);
+});
 test("VLQ handles boundaries and rejects invalid deltas", () => {
   assert.deepEqual(vlq(0), [0]);
   assert.deepEqual(vlq(128), [129, 0]);
@@ -69,11 +109,13 @@ test("format-1 MIDI contains exact tempo, chord inversion, duration and melody c
     [52, 55, 60],
   );
   assert.ok(
-    tracks[1].filter((e) => e.status === 128).every((e) => e.tick === 960),
+    tracks[1].filter((e) => e.status === 128).every((e) => e.tick === 1920),
   );
-  assert.equal(tracks[2].find((e) => e.status === 145).tick, 240);
-  assert.equal(tracks[2].find((e) => e.status === 129).tick, 720);
-  assert.ok(tracks.every((t) => t.at(-1).tick === 960 && t.at(-1).type === 47));
+  assert.equal(tracks[2].find((e) => e.status === 145).tick, 480);
+  assert.equal(tracks[2].find((e) => e.status === 129).tick, 1440);
+  assert.ok(
+    tracks.every((t) => t.at(-1).tick === 1920 && t.at(-1).type === 47),
+  );
 });
 test("adjacent notes end before retrigger; overlaps merge without early cutoff", () => {
   const p = newProject();
@@ -86,7 +128,7 @@ test("adjacent notes end before retrigger; overlaps merge without early cutoff",
   const track = decode(exportMidi(p))[1];
   assert.equal(track.filter((e) => e.status === 145).length, 2);
   assert.deepEqual(
-    track.filter((e) => e.tick === 1440 && e.status).map((e) => e.status),
+    track.filter((e) => e.tick === 2880 && e.status).map((e) => e.status),
     [129, 145],
   );
 });
@@ -115,9 +157,9 @@ test("MIDI exports the selected meter and repeats a short melody across the chor
     ]);
     assert.deepEqual(
       tracks[2].filter((e) => e.status === 145).map((e) => e.tick),
-      [0, bar * 480, bar * 960, bar * 1440],
+      [0, bar * 960, bar * 1920, bar * 2880],
     );
-    assert.ok(tracks.every((track) => track.at(-1).tick === bar * 4 * 480));
+    assert.ok(tracks.every((track) => track.at(-1).tick === bar * 4 * 960));
   }
 });
 test("extreme mismatched phrase lengths cannot allocate an unbounded MIDI arrangement", () => {
@@ -157,11 +199,11 @@ test("MIDI includes borrowed, diminished and augmented chord notes", () => {
     [50, 53, 56, 59],
   );
   assert.deepEqual(
-    notes.filter((e) => e.tick === 480).map((e) => e.bytes[0]),
+    notes.filter((e) => e.tick === 960).map((e) => e.bytes[0]),
     [48, 52, 56],
   );
   assert.deepEqual(
-    notes.filter((e) => e.tick === 960).map((e) => e.bytes[0]),
+    notes.filter((e) => e.tick === 1920).map((e) => e.bytes[0]),
     [52, 56, 59, 62],
   );
 });

@@ -34,6 +34,8 @@
   <script type="module">
     import { AudioEngine } from "../src/audio.js";
     import { GrandPiano } from "../src/grand-piano.js";
+    import { Playback } from "../src/playback.js";
+    import { newProject } from "../src/project.js";
     const result = document.getElementById("result");
     document.getElementById("run").onclick = async () => {
       result.textContent = "Running…";
@@ -136,6 +138,64 @@
         reports.push(
           "PASS sampled grand piano cancellation: silent render before onset, no retained voices",
         );
+        for (const instrument of ["soft-piano", "grand-piano"]) {
+          for (const part of ["chords", "melody"]) {
+            const energy = [];
+            for (const sustain of [0, 2]) {
+              const renderContext = new OfflineAudioContext(
+                1,
+                44100 * 2,
+                44100,
+              );
+              const engine = new AudioEngine();
+              engine.context = renderContext;
+              engine.master = renderContext.createGain();
+              engine.master.connect(renderContext.destination);
+              engine.instrument = instrument;
+              engine.grandPiano = bank;
+              engine.init = async () => {};
+              const originalNote = engine.note.bind(engine);
+              const pitch = part === "chords" ? 48 : 72;
+              // Isolate one root voice so later chords cannot mask its release.
+              engine.note = (note, ...args) =>
+                note === pitch ? originalNote(note, ...args) : null;
+              const project = newProject();
+              project.tempo = 120;
+              project.sustain[part] = sustain;
+              project.progression =
+                part === "chords"
+                  ? [
+                      { degree: 0, beats: 0.25, inversion: 0, seventh: false },
+                      { degree: 4, beats: 3.75, inversion: 0, seventh: false },
+                    ]
+                  : [];
+              project.melody =
+                part === "melody" ? [{ pitch, start: 0, beats: 0.25 }] : [];
+              const transport = new Playback(engine, () => {});
+              await transport.play(project, false, part);
+              clearInterval(transport.timer);
+              const rendered = await renderContext.startRendering();
+              const window = rendered
+                .getChannelData(0)
+                .slice(44100 * 0.55, 44100 * 0.65);
+              energy.push(
+                window.reduce((sum, value) => sum + value * value, 0),
+              );
+              if (engine.voices.size)
+                throw new Error(
+                  `${instrument} ${part}: sustain retained voices`,
+                );
+              transport.stop();
+            }
+            if (energy[0] > 0.000000001 || energy[1] < 0.00000001)
+              throw new Error(
+                `${instrument} ${part}: sustain did not extend the rendered tail (dry/wet energy ${energy.join(" / ")})`,
+              );
+          }
+          reports.push(
+            `PASS ${instrument} track sustain: chord and melody rendered tails extend beyond silent dry tails, no retained voices`,
+          );
+        }
         const decodedBytes = [...bank.buffers.values()].reduce(
           (sum, sample) =>
             sum + sample.buffer.length * sample.buffer.numberOfChannels * 4,
@@ -145,7 +205,7 @@
           `Decoded sample bank: ${(decodedBytes / 1048576).toFixed(1)} MiB in this browser.`,
         );
         result.textContent =
-          reports.join("\n") + "\n8 / 8 real audio checks passed.";
+          reports.join("\n") + "\n10 / 10 real audio checks passed.";
       } catch (error) {
         result.textContent = `FAIL ${error.message}`;
       }

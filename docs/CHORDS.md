@@ -16,14 +16,14 @@ Custom cards use optional `type: "custom"`, `root`, `quality`, `beats`, `inversi
 
 **Sustain: Off / On** is beside the piano heading, above the sound-settings disclosure. On phones it is a full-width control. Click/tap to latch it; holding Space also holds the pedal when focus is outside a text field or button. Stop and background/blur cleanup release the pedal and held voices.
 
-This pedal sustains notes played on the live keyboard. It does not add automatic pedal events to the chord/melody sequencer or MIDI export.
+This pedal sustains notes played on the live keyboard. For sequenced parts, use **Chord sustain** in the progression panel and **Melody sustain** above the melody grid. Each has Off / Short / Medium / Long settings, adding 0 / 0.5 / 1 / 2 quarter-note beats of hold after the written length. Settings are independent, saved with the project, undoable, and included in MIDI as extended note gates. Each part clears its sustained notes at its own phrase boundary, and Stop cancels both parts.
 
-## Eight musical bars
+## Eight note positions in one musical bar
 
-New melody phrases start at eight bars. The editor and loop-length choices stop at eight, Add bar cannot append a ninth, and Repeat phrase cannot double eight into sixteen. A note at the last position fits inside the current final bar. Existing shorter loops remain available; a meter change cannot silently push notes into a ninth bar.
+New melody phrases start at **one bar**, with **eight equally spaced note positions** on phones and desktop. Fill those positions and the melody returns immediately from position eight to position one on the next bar. In 4/4 they are eighth notes; other time signatures divide their own bar evenly into eight positions. Rests are the positions you leave empty.
 
-Older imported/saved phrases already longer than eight bars remain intact. Their existing limit is shown explicitly rather than trimming stored music. No new ninth bar is introduced into an eight-bar project. The absolute compatibility ceiling is still 128 quarter-note beats; very large meters may fit fewer than eight bars.
+**Add bar** adds one more complete bar and opens it for editing. **Repeat phrase** doubles the current phrase with editable copies of its notes. Page choices include only the current phrase, so no empty second or ninth bar is introduced automatically. An optional 16/32-position grid allows finer subdivisions. The absolute timeline remains 128 quarter-note beats with up to 512 melody notes.
 
-The timing tests confirm that the last note of bar eight meets the next bar-one onset exactly on the scheduler's audio clock. Musical phrase boundaries remain separate from the number of grid cells or notes.
+Existing saved longer phrases stay intact. To reduce a previously saved eight-bar phrase with notes only in bar one, choose **Loop length → 1 bar** or **Auto · whole bars**. Shortening is rejected if it would hide any notes.
 
 Theory reference: [Open Music Theory: triads](https://viva.pressbooks.pub/openmusictheory/chapter/triads/) and [triads/seventh chords](https://open-musictheory.github.io/docs/fundamentals/triads/).

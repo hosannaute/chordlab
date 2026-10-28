@@ -2,9 +2,10 @@ import { INTERVALS, resolveChord, mod } from "./theory.js";
 import {
   DENOMINATORS,
   MIN_STEP,
-  NOTE_LENGTHS,
   MAX_BEATS,
   melodyLength,
+  validNoteLength,
+  barBeats,
 } from "./timing.js";
 export const INSTRUMENTS = [
   "grand-piano",
@@ -23,7 +24,8 @@ export const newProject = () => ({
   tempo: 100,
   instrument: "grand-piano",
   meter: { numerator: 4, denominator: 4 },
-  melodyBars: 8,
+  melodyBars: 1,
+  sustain: { chords: 0, melody: 0 },
   progression: [0, 4, 5, 3].map((degree) => ({
     degree,
     beats: 4,
@@ -59,6 +61,14 @@ export function validateProject(p) {
       "Choose a time signature from 1–32 over 1, 2, 4, 8, 16 or 32.",
     );
   const melodyBars = p.melodyBars === undefined ? 0 : p.melodyBars;
+  const sustain =
+    p.sustain === undefined ? { chords: 0, melody: 0 } : p.sustain;
+  if (
+    !sustain ||
+    ![0, 0.5, 1, 2].includes(sustain.chords) ||
+    ![0, 0.5, 1, 2].includes(sustain.melody)
+  )
+    throw new Error("Invalid chord or melody sustain setting.");
   if (
     !integer(
       melodyBars,
@@ -125,7 +135,7 @@ export function validateProject(p) {
       !integer(n.pitch, 36, 95) ||
       !number(n.start, 0, MAX_BEATS - MIN_STEP) ||
       (n.start / MIN_STEP) % 1 ||
-      !NOTE_LENGTHS.includes(n.beats) ||
+      !validNoteLength(n.beats) ||
       n.start + n.beats > 128
     )
       throw new Error("Invalid melody note in project.");
@@ -148,6 +158,7 @@ export function validateProject(p) {
     instrument: p.instrument,
     meter: { numerator: meter.numerator, denominator: meter.denominator },
     melodyBars,
+    sustain: { chords: sustain.chords, melody: sustain.melody },
     progression,
     melody,
   };
@@ -204,6 +215,32 @@ export function transposeProject(project, key) {
   );
   return { ...project, key, melody, progression };
 }
+export function changeProjectMeter(project, meter) {
+  // Validate the meter before using it in timing arithmetic.
+  validateProject({ ...project, meter, melodyBars: 0, melody: [] });
+  const ratio = barBeats({ meter }) / barBeats(project);
+  const snap = (value) => Math.round(value / MIN_STEP) * MIN_STEP;
+  const melody = project.melody.map((note) => ({
+    ...note,
+    start: snap(note.start * ratio),
+    beats: Math.max(MIN_STEP, snap(note.beats * ratio)),
+  }));
+  if (
+    melody.some((note, index) =>
+      melody.some(
+        (other, otherIndex) =>
+          otherIndex !== index &&
+          note.pitch === other.pitch &&
+          note.start < other.start + other.beats &&
+          note.start + note.beats > other.start,
+      ),
+    )
+  )
+    throw new Error(
+      "This meter is too short to keep these notes distinct. Choose a larger meter or move the overlapping notes first.",
+    );
+  return validateProject({ ...project, meter, melody });
+}
 export function composition(project, part = "all") {
   const events = [];
   let cursor = 0;
@@ -225,11 +262,13 @@ export function composition(project, part = "all") {
   const tracks = [
     {
       name: "chords",
+      sustain: project.sustain?.chords || 0,
       beats: cursor,
       events: events.filter((e) => e.track === "chords"),
     },
     {
       name: "melody",
+      sustain: project.sustain?.melody || 0,
       beats: melodyLength(project),
       events: events.filter((e) => e.track === "melody"),
     },

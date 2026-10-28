@@ -1,6 +1,7 @@
 import { composition, validateProject } from "./project.js";
 import { meterOf } from "./timing.js";
 const text = (value) => [...new TextEncoder().encode(value)];
+const PPQ = 960; // Exactly represents every 1/64-quarter position in supported meters.
 const word = (n) => [
   (n >>> 24) & 255,
   (n >>> 16) & 255,
@@ -49,7 +50,7 @@ export function exportMidi(project) {
             ...event,
             start,
             beats: Math.min(
-              event.beats,
+              event.beats + (phrase.sustain || 0),
               beats - start,
               phrase.beats - event.start,
             ),
@@ -59,7 +60,7 @@ export function exportMidi(project) {
   });
   const meter = meterOf(project);
   const tempo = Math.round(60000000 / project.tempo);
-  const end = Math.round(beats * 480);
+  const end = Math.round(beats * PPQ);
   const tracks = [
     track(
       "Tempo",
@@ -89,6 +90,16 @@ export function exportMidi(project) {
   ["chords", "melody"].forEach((part, channel) => {
     const notes = events.filter((e) => e.track === part);
     if (!notes.length) return;
+    // A fresh attack of the same pitch releases its previous sustained MIDI gate.
+    // Keep the attacks audible instead of merging them into one long held note.
+    if (project.sustain?.[part]) {
+      notes.sort((a, b) => a.pitch - b.pitch || a.start - b.start);
+      notes.forEach((note, index) => {
+        const next = notes[index + 1];
+        if (next?.pitch === note.pitch && next.start > note.start)
+          note.beats = Math.min(note.beats, next.start - note.start);
+      });
+    }
     // Merge overlapping identical pitches on a track so a note-off cannot cut another voice short.
     const merged = [];
     notes
@@ -109,12 +120,12 @@ export function exportMidi(project) {
     merged.forEach((n) =>
       messages.push(
         {
-          tick: Math.round(n.start * 480),
+          tick: Math.round(n.start * PPQ),
           priority: 2,
           bytes: [144 + channel, n.pitch, part === "chords" ? 78 : 96],
         },
         {
-          tick: Math.round((n.start + n.beats) * 480),
+          tick: Math.round((n.start + n.beats) * PPQ),
           priority: 1,
           bytes: [128 + channel, n.pitch, 0],
         },
@@ -129,8 +140,8 @@ export function exportMidi(project) {
     1,
     0,
     tracks.length,
-    1,
-    224,
+    PPQ >>> 8,
+    PPQ & 255,
     ...tracks.flat(),
   ]);
 }

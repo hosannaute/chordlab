@@ -142,6 +142,99 @@ function fakeAudio() {
     },
   };
 }
+test("eight filled positions repeat every bar without a gap while chords continue", async () => {
+  for (const [numerator, denominator] of [
+    [4, 4],
+    [3, 4],
+    [7, 8],
+    [5, 16],
+    [1, 32],
+  ]) {
+    const audio = fakeAudio(),
+      p = newProject();
+    p.meter = { numerator, denominator };
+    p.tempo = 120;
+    const bar = (numerator * 4) / denominator,
+      step = bar / 8;
+    p.progression = [
+      { degree: 0, beats: bar * 4, inversion: 0, seventh: false },
+    ];
+    p.melody = Array.from({ length: 8 }, (_, index) => ({
+      pitch: 80 + index,
+      start: index * step,
+      beats: step,
+    }));
+    const playback = new Playback(audio, () => {});
+    await playback.play(p);
+    clearInterval(playback.timer);
+    for (let tick = 1; tick <= Math.ceil((bar * 1.5 + 0.06) / 0.025); tick++) {
+      audio.context.currentTime = tick * 0.025;
+      playback.tick();
+    }
+    const melody = audio.calls.filter((call) => call[0] >= 80).slice(0, 24);
+    assert.equal(melody.length, 24);
+    melody.forEach((call, index) => {
+      assert.equal(call[0], 80 + (index % 8));
+      assert.ok(Math.abs(call[1] - (0.04 + index * step * 0.5)) < 1e-8);
+      assert.ok(Math.abs(call[2] - step * 0.5) < 1e-8);
+      if (index)
+        assert.ok(
+          Math.abs(melody[index - 1][1] + melody[index - 1][2] - call[1]) <
+            1e-8,
+        );
+    });
+    assert.equal(
+      audio.calls.filter(
+        (call) => call[0] < 80 && call[1] < 0.04 + bar * 2 - 1e-8,
+      ).length,
+      3,
+    );
+    playback.stop();
+  }
+});
+test("chord and melody sustain extend only their own gates and clear at loop boundaries", async () => {
+  for (const sustain of [
+    { chords: 1, melody: 0 },
+    { chords: 0, melody: 2 },
+    { chords: 0.5, melody: 1 },
+  ]) {
+    const p = newProject(),
+      audio = fakeAudio();
+    p.tempo = 120;
+    p.sustain = sustain;
+    p.progression = [0, 4].map((degree) => ({
+      degree,
+      beats: 2,
+      inversion: 0,
+      seventh: false,
+    }));
+    p.melody = [0, 3.5].map((start) => ({
+      pitch: start ? 82 : 80,
+      start,
+      beats: 0.5,
+    }));
+    const playback = new Playback(audio, () => {});
+    await playback.play(p);
+    clearInterval(playback.timer);
+    for (let tick = 1; tick <= 80; tick++) {
+      audio.context.currentTime = tick * 0.025;
+      playback.tick();
+    }
+    assert.equal(
+      audio.calls.find((call) => call[0] === 48)[2],
+      (2 + sustain.chords) / 2,
+    );
+    assert.equal(
+      audio.calls.find((call) => call[0] === 80)[2],
+      (0.5 + sustain.melody) / 2,
+    );
+    assert.equal(audio.calls.find((call) => call[0] === 82)[2], 0.25);
+    assert.equal(audio.calls.find((call) => call[0] === 59)[2], 1);
+    assert.equal(p.melody[0].beats, 0.5);
+    playback.stop();
+    assert.equal(audio.stops.at(-1), "transport");
+  }
+});
 test("clearing a preview while piano samples load prevents a delayed ghost note", async () => {
   let finish;
   const audio = new AudioEngine();
@@ -209,6 +302,7 @@ test("an eight-bar melody returns directly from bar eight to bar one", async () 
     p = newProject(),
     playback = new Playback(audio, () => {});
   p.progression = [];
+  p.melodyBars = 8;
   p.tempo = 120;
   p.melody = [
     { pitch: 72, start: 0, beats: 0.5 },

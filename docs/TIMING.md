@@ -1,15 +1,13 @@
 # Melody phrases, meter and synchronization
 
-CHORDLAB 2.3 gives harmony and melody separate loop lengths on one audio clock. A short melody repeats during the chord progression instead of playing once and waiting for the longest part to restart.
-
-**2.4 update:** new melody phrases default to eight bars and the editor cannot append an empty ninth bar. Add bar/Repeat phrase stop at that limit; the older 128-quarter-note capacity described below is now a compatibility ceiling for preserved legacy projects and unusually large meters. Meter changes that would push notes beyond the current phrase limit are rejected. See [CHORDS.md](CHORDS.md) for the current behavior.
+CHORDLAB 2.5 starts with **one melody bar containing eight equal note positions**. The bar repeats continuously over the chord progression. The user explicitly adds more bars; the editor never creates an empty following bar automatically.
 
 ## Using the controls
 
 1. Set **Time signature** in the session strip. The numerator accepts 1–32; the denominator accepts 1, 2, 4, 8, 16 or 32. There is one meter per project.
-2. Choose **One bar per chord** if the existing chord lengths should follow the new meter. Changing meter alone preserves their timing. New chords and progression presets use one selected-meter bar per chord.
+2. Choose **One bar per chord** if the existing chord lengths should follow the new meter. Changing meter preserves chord timing and rescales melody notes to keep their bar positions. New chords and progression presets use one selected-meter bar per chord.
 3. Add melody notes. **Auto · whole bars** repeats through the final occupied bar; an explicit loop length includes intentional rests and must contain all existing notes.
-4. Choose **Grid → 1/16 notes** or **1/32 notes** for more positions within a bar, with a corresponding note length. Grid spacing and note count are independent: eight visible positions are not an eight-note project limit.
+4. Choose **Grid → 16 positions / bar** or **32 positions / bar** for more positions within a bar, with a corresponding note length. Grid spacing and note count are independent: eight visible positions are not an eight-note project limit.
 5. **＋ Add bar** extends the loop and moves the view to the new bar. **×2 Repeat phrase** copies the current phrase into a doubled, editable phrase. Both are undoable.
 6. Previous/Next reaches other pages. Fine grids scroll within their own panel on phones. **Follow playback** follows pages and the horizontal playhead while listening; disable it to inspect another location.
 
@@ -27,9 +25,9 @@ Loop off finishes one arrangement spanning the longer part; when disabled during
 
 ## Persistence and export
 
-Optional `meter: { numerator, denominator }` and `melodyBars` fields extend the version-2 project schema. A zero `melodyBars` means automatic whole-bar length. New fields survive save/reload, JSON import/export and undo/redo. Starts use eighths of a quarter note (1/32 notes); supported durations are 1/32, 1/16, 1/8, 1/4, 1/2 and whole notes. Shorter-loop requests never delete or conceal existing notes.
+Optional `meter: { numerator, denominator }` and `melodyBars` fields extend the version-2 project schema. A zero `melodyBars` means automatic whole-bar length. New fields survive save/reload, JSON import/export and undo/redo. Starts and durations use a minimum quantum of 1/64 quarter note so eight positions also fit exactly in a 1/32 bar. The default grid step is `barBeats / 8`; optional finer grids are available when they fit that quantum. Stored off-grid legacy notes retain their timing and reveal a compatible saved-note grid. Shorter-loop requests never delete or conceal existing notes.
 
-MIDI uses the selected time-signature meta event and a quarter-note tempo at 480 PPQN. It exports one pass of the longer part and repeats the shorter phrase, clipping notes at the arrangement end. An estimate above 200,000 note events is rejected before expansion. App timbres and infinite playback are not embedded in MIDI.
+MIDI uses the selected time-signature meta event and a quarter-note tempo at 960 PPQN. It exports one pass of the longer part and repeats the shorter phrase, clipping notes at the arrangement end. An estimate above 200,000 note events is rejected before expansion. Independent `sustain: { chords, melody }` values extend note gates, clipped at the corresponding loop boundary, in both playback and MIDI. Same-pitch sustained MIDI gates end at the next attack so retriggers remain audible. Missing sustain fields in older saves default to Off for both tracks. App timbres and infinite playback are not embedded in MIDI.
 
 Swing, triplets, mid-song meter changes and automatic accent/metronome patterns are outside this update.
 

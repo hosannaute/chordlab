@@ -21,6 +21,24 @@ function memory() {
     data,
   };
 }
+test("separate sustain settings survive JSON, library saves and old project defaults", () => {
+  const p = { ...newProject(), sustain: { chords: 0.5, melody: 2 } };
+  assert.deepEqual(parseProject(JSON.stringify(p)).sustain, p.sustain);
+  const storage = memory();
+  saveProject(p, storage);
+  assert.deepEqual(readProjects(storage)[0].sustain, p.sustain);
+  const old = { ...p };
+  delete old.sustain;
+  assert.deepEqual(validateProject(old).sustain, { chords: 0, melody: 0 });
+  for (const sustain of [
+    null,
+    {},
+    { chords: -1, melody: 0 },
+    { chords: 0, melody: "2" },
+    { chords: 0, melody: 100 },
+  ])
+    assert.throws(() => validateProject({ ...p, sustain }), /sustain/);
+});
 test("project roundtrip and strict validation reject malformed nested data", () => {
   const p = newProject();
   assert.deepEqual(parseProject(JSON.stringify(p)), p);
