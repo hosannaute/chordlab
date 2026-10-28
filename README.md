@@ -6,9 +6,9 @@
 
 ![CHORDLAB desktop workspace](docs/screenshots/desktop.jpg)
 
-<details><summary>Compact melody editor and phone playback controls</summary>
+<details><summary>Numbered melody editor and sticky playback controls</summary>
 
-![CHORDLAB phone melody editor](docs/screenshots/mobile-editor.jpg)
+![CHORDLAB numbered melody editor](docs/screenshots/melody-layout.jpg)
 
 </details>
 
@@ -23,12 +23,16 @@
 - Compose up to 512 melody notes. Start with eight equal note positions in one bar, with optional 16- or 32-position grids. Add bars, repeat a phrase into editable copies, and move, resize or delete notes. Previous/Next and optional playback following keep long phrases accessible on phones.
 - Undo/redo up to 100 composition edits, including clearing a part or replacing a progression. Consecutive typing changes are grouped, and undo tracks the saved composition accurately.
 - Start with a compact scale-note melody view, reveal chromatic notes, and drag notes or their right edges to move/resize them. Editing buttons and keyboard navigation remain available.
-- Keep Play, Stop, Loop, Undo and Redo within reach using the fixed phone playback bar. Sound and keyboard settings fold away on smaller screens.
+- Keep Play, Stop, Loop, Record and Tempo visible with a shared sticky playback bar on desktop and phone. Jump directly to Chords, Keys or Melody. Session/export, mixer/pedal, sound, recording and phrase settings fold away; both track sustain controls stay visible beside their composing tools. Undo and Redo remain in the session header.
 - Chords and melody loop independently on the same tempo clock. New melody phrases use **one bar with eight note positions** and repeat continuously until you add another bar. Separate **Chord sustain** and **Melody sustain** controls let either part ring longer.
 - Save, rename, reopen and delete multiple local projects. Automatic recovery drafts protect unfinished edits across refreshes; manual saves remain separate. Import/export validated version-2 JSON backups.
 - Export standard format-1 MIDI with a tempo/time-signature track and separate chord/melody tracks.
 - Balance chords and melody with independent volume, mute and solo controls. Record one melody phrase with a metronome/count-in, edit note velocities and pedal changes by bar, and export stereo WAV audio.
 - Learn eight short theory topics with audio examples.
+
+## Workspace layout
+
+Open **Session & export** for key, scale, time signature, MIDI and WAV. **More chords** contains borrowed keys and the custom dim/aug builder. **Phrase settings**, below the melody grid, contains loop length, finer grids and repeat. The numbered positions and highlighted column follow melody playback; each added bar has its own eight positions by default. Recording from the sticky bar brings the piano into view and replaces Record with Finish for the take. Existing project files and music timing are unchanged.
 
 ## Run locally
 

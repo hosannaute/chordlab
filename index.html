@@ -98,15 +98,20 @@
       <p id="autosave-status" class="hint" aria-live="polite">
         Automatic recovery drafts are saved in this browser.
       </p>
-      <section
-        class="transport panel"
-        aria-label="Playback and session settings"
-      >
+      <section class="transport panel" aria-label="Playback and recording">
         <div class="transport-buttons">
           <button id="play" class="play-button" aria-label="Play composition">
             ▶ <span>Play</span></button
           ><button id="stop" aria-label="Stop all sound">■</button
           ><button id="loop" aria-pressed="true">↻ Loop on</button>
+          <button id="record-melody" aria-label="Record melody">● Record</button
+          ><button
+            id="finish-recording"
+            aria-label="Finish melody take"
+            disabled
+          >
+            ■ Finish
+          </button>
         </div>
         <div class="tempo-control">
           <label for="tempo">TEMPO</label>
@@ -120,121 +125,141 @@
             /><span>BPM</span>
           </div>
         </div>
-        <div class="setting">
-          <label for="key">KEY</label
-          ><select id="key"></select>
-        </div>
-        <div class="setting">
-          <label for="mode">SCALE</label
-          ><select id="mode">
-            <option value="major">Major</option>
-            <option value="minor">Natural minor</option>
-          </select>
-        </div>
-        <div class="export-control">
-          <button id="export-midi">↓ Export MIDI</button>
-          <button id="export-wav">↓ Export WAV</button>
-          <label class="sr-only" for="wav-cycles">WAV arrangement passes</label>
-          <select id="wav-cycles">
-            <option value="1">1 pass</option>
-            <option value="2">2 passes</option>
-            <option value="4">4 passes</option>
-            <option value="8">8 passes</option>
-          </select>
-        </div>
-        <div class="setting meter-setting">
-          <label for="meter-numerator">TIME SIGNATURE</label>
-          <div class="row">
-            <input
-              id="meter-numerator"
-              type="number"
-              min="1"
-              max="32"
-              value="4"
-              aria-label="Time signature numerator"
-            />
-            <span>/</span
-            ><select
-              id="meter-denominator"
-              aria-label="Time signature denominator"
-            >
-              <option>1</option>
-              <option>2</option>
-              <option selected>4</option>
-              <option>8</option>
-              <option>16</option>
-              <option>32</option>
-            </select>
-          </div>
-        </div>
+        <span id="transport-position" class="transport-position" role="status"
+          >Ready to play</span
+        >
       </section>
-      <section
-        class="panel studio-tools"
-        aria-label="Track mixing and pedal changes"
-      >
-        <details open>
-          <summary>Track mixer &amp; pedal changes</summary>
-          <div class="mixer-grid">
-            <div class="mixer-track">
-              <label for="chords-volume"
-                >CHORD VOLUME
-                <output id="chords-volume-label">80%</output></label
-              ><input
-                id="chords-volume"
-                type="range"
-                min="0"
-                max="100"
-                value="80"
-              />
-              <div class="row">
-                <button id="chords-mute" aria-pressed="false">
-                  Mute chords</button
-                ><button id="chords-solo" aria-pressed="false">
-                  Solo chords
-                </button>
-              </div>
+      <div class="workspace-tools">
+        <details class="panel session-settings">
+          <summary>
+            Session &amp; export <span id="session-context">C major · 4/4</span>
+          </summary>
+          <div class="session-settings-content">
+            <div class="setting">
+              <label for="key">KEY</label
+              ><select id="key"></select>
             </div>
-            <div class="mixer-track">
-              <label for="melody-volume"
-                >MELODY VOLUME
-                <output id="melody-volume-label">100%</output></label
-              ><input
-                id="melody-volume"
-                type="range"
-                min="0"
-                max="100"
-                value="100"
-              />
+            <div class="setting">
+              <label for="mode">SCALE</label
+              ><select id="mode">
+                <option value="major">Major</option>
+                <option value="minor">Natural minor</option>
+              </select>
+            </div>
+            <div class="export-control">
+              <button id="export-midi">↓ Export MIDI</button>
+              <button id="export-wav">↓ Export WAV</button>
+              <label class="sr-only" for="wav-cycles"
+                >WAV arrangement passes</label
+              >
+              <select id="wav-cycles">
+                <option value="1">1 pass</option>
+                <option value="2">2 passes</option>
+                <option value="4">4 passes</option>
+                <option value="8">8 passes</option>
+              </select>
+            </div>
+            <div class="setting meter-setting">
+              <label for="meter-numerator">TIME SIGNATURE</label>
               <div class="row">
-                <button id="melody-mute" aria-pressed="false">
-                  Mute melody</button
-                ><button id="melody-solo" aria-pressed="false">
-                  Solo melody
-                </button>
+                <input
+                  id="meter-numerator"
+                  type="number"
+                  min="1"
+                  max="32"
+                  value="4"
+                  aria-label="Time signature numerator"
+                />
+                <span>/</span
+                ><select
+                  id="meter-denominator"
+                  aria-label="Time signature denominator"
+                >
+                  <option>1</option>
+                  <option>2</option>
+                  <option selected>4</option>
+                  <option>8</option>
+                  <option>16</option>
+                  <option>32</option>
+                </select>
               </div>
             </div>
           </div>
-          <div class="row pedal-editor">
-            <label for="pedal-track">PEDAL PART</label
-            ><select id="pedal-track">
-              <option value="chords">Chords</option>
-              <option value="melody">Melody</option></select
-            ><label for="pedal-bar">BAR</label
-            ><select id="pedal-bar"></select
-            ><label class="check"
-              ><input type="checkbox" id="pedal-down" /> Hold pedal in this
-              bar</label
-            ><button id="pedal-all">Pedal every bar</button
-            ><button id="pedal-clear">Clear pedal</button>
-          </div>
-          <p id="pedal-summary" class="hint">
-            Pedal holds notes until the next pedal-up bar. Each phrase clears
-            its pedal at the loop boundary.
-          </p>
         </details>
-      </section>
+        <section
+          class="panel studio-tools"
+          aria-label="Track mixing and pedal changes"
+        >
+          <details>
+            <summary>Track mixer &amp; pedal changes</summary>
+            <div class="mixer-grid">
+              <div class="mixer-track">
+                <label for="chords-volume"
+                  >CHORD VOLUME
+                  <output id="chords-volume-label">80%</output></label
+                ><input
+                  id="chords-volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="80"
+                />
+                <div class="row">
+                  <button id="chords-mute" aria-pressed="false">
+                    Mute chords</button
+                  ><button id="chords-solo" aria-pressed="false">
+                    Solo chords
+                  </button>
+                </div>
+              </div>
+              <div class="mixer-track">
+                <label for="melody-volume"
+                  >MELODY VOLUME
+                  <output id="melody-volume-label">100%</output></label
+                ><input
+                  id="melody-volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="100"
+                />
+                <div class="row">
+                  <button id="melody-mute" aria-pressed="false">
+                    Mute melody</button
+                  ><button id="melody-solo" aria-pressed="false">
+                    Solo melody
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="row pedal-editor">
+              <label for="pedal-track">PEDAL PART</label
+              ><select id="pedal-track">
+                <option value="chords">Chords</option>
+                <option value="melody">Melody</option></select
+              ><label for="pedal-bar">BAR</label
+              ><select id="pedal-bar"></select
+              ><label class="check"
+                ><input type="checkbox" id="pedal-down" /> Hold pedal in this
+                bar</label
+              ><button id="pedal-all">Pedal every bar</button
+              ><button id="pedal-clear">Clear pedal</button>
+            </div>
+            <p id="pedal-summary" class="hint">
+              Pedal holds notes until the next pedal-up bar. Each phrase clears
+              its pedal at the loop boundary.
+            </p>
+          </details>
+        </section>
+      </div>
+      <nav class="workspace-nav" aria-label="Jump to composing tools">
+        <a href="#chords-workspace">01 <span>Chords</span></a>
+        <a href="#keys-workspace">02 <span>Keys</span></a>
+        <a href="#melody-workspace">03 <span>Melody</span></a>
+      </nav>
       <div class="studio-grid">
         <section
+          id="chords-workspace"
           class="panel progression-panel"
           aria-labelledby="progression-title"
         >
@@ -256,18 +281,6 @@
             class="chord-palette"
             aria-label="Chords in the selected scale"
           ></div>
-          <div class="borrow-controls row">
-            <label for="chord-source-key">BORROW FROM</label
-            ><select id="chord-source-key">
-              <option value="">Home key</option>
-            </select>
-            <label for="chord-source-mode">SCALE</label
-            ><select id="chord-source-mode">
-              <option value="major">Major</option>
-              <option value="minor">Natural minor</option>
-            </select>
-          </div>
-          <p id="chord-palette-hint" class="hint"></p>
           <div class="row track-sustain">
             <label for="chord-sustain">CHORD SUSTAIN</label>
             <select id="chord-sustain">
@@ -281,8 +294,31 @@
               loop.</span
             >
           </div>
-          <details class="custom-chord-panel" open>
-            <summary>Build any chord · passing tones, dim &amp; aug</summary>
+
+          <div class="timeline-label">
+            <span>YOUR PROGRESSION</span
+            ><button id="clear-chords" class="text-button">Clear chords</button>
+          </div>
+          <ol
+            id="sequence"
+            class="sequence"
+            aria-label="Your chord progression"
+          ></ol>
+          <details class="custom-chord-panel">
+            <summary>More chords · borrow a key, dim &amp; aug</summary>
+            <div class="borrow-controls row">
+              <label for="chord-source-key">BORROW FROM</label
+              ><select id="chord-source-key">
+                <option value="">Home key</option>
+              </select>
+              <label for="chord-source-mode">SCALE</label
+              ><select id="chord-source-mode">
+                <option value="major">Major</option>
+                <option value="minor">Natural minor</option>
+              </select>
+            </div>
+            <p id="chord-palette-hint" class="hint"></p>
+
             <div class="row custom-chord-controls">
               <label for="custom-root">ROOT</label
               ><select id="custom-root"></select>
@@ -313,15 +349,6 @@
               tension and choose where it resolves.
             </p>
           </details>
-          <div class="timeline-label">
-            <span>YOUR PROGRESSION</span
-            ><button id="clear-chords" class="text-button">Clear chords</button>
-          </div>
-          <ol
-            id="sequence"
-            class="sequence"
-            aria-label="Your chord progression"
-          ></ol>
           <div class="presets">
             <label for="preset">START WITH AN IDEA</label
             ><select id="preset">
@@ -334,7 +361,11 @@
             </select>
           </div>
         </section>
-        <section class="panel piano-panel" aria-labelledby="piano-title">
+        <section
+          id="keys-workspace"
+          class="panel piano-panel"
+          aria-labelledby="piano-title"
+        >
           <div class="section-top">
             <div>
               <p class="eyebrow">02 / PLAY SOMETHING</p>
@@ -412,12 +443,34 @@
                 <option value="1.5">Very long</option>
               </select>
             </div>
+            <p class="sample-credit">
+              Grand Piano:
+              <a
+                href="https://github.com/sfzinstruments/SalamanderGrandPiano"
+                target="_blank"
+                rel="noreferrer"
+                >Salamander recordings by Alexander Holm</a
+              >
+              ·
+              <a
+                href="https://creativecommons.org/licenses/by/3.0/"
+                target="_blank"
+                rel="noreferrer"
+                >CC BY 3.0</a
+              >
+              ·
+              <a
+                href="./audio/grand-piano/ATTRIBUTION.md"
+                target="_blank"
+                rel="noreferrer"
+                >Sample credits</a
+              >
+            </p>
           </details>
-          <div class="record-controls">
+          <details class="record-controls">
+            <summary>Recording options · metronome &amp; count-in</summary>
             <div class="row">
-              <button id="record-melody">● Record melody</button
-              ><button id="finish-recording" disabled>■ Finish take</button
-              ><label class="check"
+              <label class="check"
                 ><input id="metronome" type="checkbox" /> Metronome</label
               ><label for="count-in">RECORDING COUNT-IN</label
               ><select id="count-in">
@@ -426,38 +479,17 @@
                 <option value="2">2 bars</option>
               </select>
             </div>
-            <p id="record-status" class="hint" role="status">
-              Record one pass into the current melody bars using these keys or
-              your computer keyboard. The take snaps to the selected grid; Undo
-              restores it.
-            </p>
-          </div>
+          </details>
+          <p id="record-status" class="hint" role="status">
+            Record one pass into the current melody bars using these keys or
+            your computer keyboard. The take snaps to the selected grid; Undo
+            restores it.
+          </p>
+
           <p id="instrument-status" class="hint" role="status">
             Grand Piano loads its recordings on first play.
           </p>
-          <p class="sample-credit">
-            Grand Piano:
-            <a
-              href="https://github.com/sfzinstruments/SalamanderGrandPiano"
-              target="_blank"
-              rel="noreferrer"
-              >Salamander recordings by Alexander Holm</a
-            >
-            ·
-            <a
-              href="https://creativecommons.org/licenses/by/3.0/"
-              target="_blank"
-              rel="noreferrer"
-              >CC BY 3.0</a
-            >
-            ·
-            <a
-              href="./audio/grand-piano/ATTRIBUTION.md"
-              target="_blank"
-              rel="noreferrer"
-              >Sample credits</a
-            >
-          </p>
+
           <div id="piano" class="piano" aria-label="Playable piano"></div>
           <div class="piano-footer">
             <p class="hint">
@@ -492,7 +524,11 @@
           <p id="chord-function" class="function-text"></p>
           <button id="preview-chord" class="wide">▷ Hear chord</button>
         </aside>
-        <section class="panel melody-panel" aria-labelledby="melody-title">
+        <section
+          id="melody-workspace"
+          class="panel melody-panel"
+          aria-labelledby="melody-title"
+        >
           <div class="section-top">
             <div>
               <p class="eyebrow">03 / FIND YOUR MELODY</p>
@@ -501,43 +537,23 @@
             <button id="play-melody">▷ Melody only</button>
           </div>
           <div class="melody-toolbar">
-            <p class="hint">
-              Tap to add. Drag a note to move it; drag its right edge to resize.
-              Arrow keys and the controls below work too.
-            </p>
             <div class="row">
               <label for="melody-page">BARS</label
               ><select id="melody-page"></select
               ><label for="note-duration">NOTE LENGTH</label
               ><select id="note-duration"></select>
             </div>
+            <div class="melody-view-controls row phrase-actions">
+              <button id="melody-prev" aria-label="Previous melody page">
+                ← Previous
+              </button>
+              <button id="melody-next" aria-label="Next melody page">
+                Next →
+              </button>
+              <button id="melody-add-bar">＋ Add bar</button>
+            </div>
           </div>
-          <div class="melody-view-controls row">
-            <label for="melody-bars">LOOP LENGTH</label
-            ><select id="melody-bars"></select>
-            <label for="melody-step">GRID</label
-            ><select id="melody-step">
-              <option value="8">8 positions / bar</option>
-              <option value="16">16 positions / bar</option>
-              <option value="32">32 positions / bar</option>
-            </select>
-            <label class="follow-control"
-              ><input id="melody-follow" type="checkbox" checked /> Follow
-              playback</label
-            >
-          </div>
-          <div class="melody-view-controls row phrase-actions">
-            <button id="melody-prev" aria-label="Previous melody page">
-              ← Previous
-            </button>
-            <button id="melody-next" aria-label="Next melody page">
-              Next →
-            </button>
-            <button id="melody-add-bar">＋ Add bar</button>
-            <button id="melody-repeat">×2 Repeat phrase</button>
-            <button id="chords-to-bars">One bar per chord</button>
-          </div>
-          <p id="loop-summary" class="hint" aria-live="polite"></p>
+
           <div class="row track-sustain">
             <label for="melody-sustain">MELODY SUSTAIN</label>
             <select id="melody-sustain">
@@ -570,6 +586,12 @@
             </button>
           </div>
           <p id="melody-view-hint" class="hint"></p>
+          <div class="grid-legend">
+            <span
+              >NOTE POSITIONS
+              <strong id="grid-position-count">8 per bar</strong></span
+            ><span><i aria-hidden="true"></i> Playback position</span>
+          </div>
           <div
             class="melody-scroll"
             tabindex="0"
@@ -583,6 +605,10 @@
               aria-label="Melody piano roll"
             ></div>
           </div>
+          <p class="hint grid-help">
+            Tap to add. Drag a note to move it or its right edge to resize. Use
+            arrow keys to navigate.
+          </p>
           <p
             id="drag-feedback"
             class="hint"
@@ -629,6 +655,28 @@
             <span class="hint" id="melody-count">0 notes · 4/4 time</span
             ><button id="clear-melody" class="text-button">Clear melody</button>
           </div>
+          <details class="phrase-settings">
+            <summary>Phrase settings · grid, loop length &amp; repeat</summary>
+            <div class="melody-view-controls row">
+              <label for="melody-bars">LOOP LENGTH</label
+              ><select id="melody-bars"></select>
+              <label for="melody-step">GRID</label
+              ><select id="melody-step">
+                <option value="8">8 positions / bar</option>
+                <option value="16">16 positions / bar</option>
+                <option value="32">32 positions / bar</option>
+              </select>
+              <label class="follow-control"
+                ><input id="melody-follow" type="checkbox" checked /> Follow
+                playback</label
+              >
+            </div>
+            <div class="row">
+              <button id="melody-repeat">×2 Repeat phrase</button>
+              <button id="chords-to-bars">One bar per chord</button>
+            </div>
+          </details>
+          <p id="loop-summary" class="hint" aria-live="polite"></p>
         </section>
         <section class="panel learning-panel" aria-labelledby="learning-title">
           <div>
@@ -663,25 +711,6 @@
         >
       </footer>
     </main>
-    <nav class="mobile-transport" aria-label="Quick composition controls">
-      <button
-        id="mobile-play"
-        class="accent"
-        aria-label="Play or stop composition"
-      >
-        ▶ Play
-      </button>
-      <button id="mobile-stop" aria-label="Stop playback">■ Stop</button>
-      <button id="mobile-loop" aria-label="Loop playback" aria-pressed="true">
-        ↻
-      </button>
-      <button id="mobile-undo" aria-label="Undo composition edit" disabled>
-        ↶
-      </button>
-      <button id="mobile-redo" aria-label="Redo composition edit" disabled>
-        ↷
-      </button>
-    </nav>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
