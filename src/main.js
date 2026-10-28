@@ -107,7 +107,6 @@ let savedSignature = JSON.stringify(project);
 let gesture = null,
   suppressMelodyClick = false;
 if (compact) $("octaves").value = "1";
-$("piano-settings-disclosure").open = !compact;
 function report(message, error = false) {
   $("status").textContent = message;
   $("status").classList.toggle("error", error);
@@ -130,7 +129,12 @@ const playback = new Playback(
           : `Recording · bar ${Math.floor(current / barBeats(project)) + 1}. Play the piano keys; this take ends after the current phrase.`;
     }
     $("play").innerHTML = "■ <span>Stop</span>";
-    $("mobile-play").textContent = "■ Stop";
+    $("play").setAttribute("aria-label", "Stop composition");
+    $("transport-position").textContent = recorder
+      ? playback.currentBeat() < 0
+        ? "Recording count-in"
+        : `Recording · bar ${Math.floor(melodyBeat / barBeats(project)) + 1}`
+      : `Melody · bar ${Math.floor(melodyBeat / barBeats(project)) + 1} · position ${Math.floor((melodyBeat % barBeats(project)) / melodyStep) + 1}`;
     const follow = $("melody-follow").checked && project.melody.length;
     if (follow) {
       const page = Math.min(
@@ -177,7 +181,8 @@ const playback = new Playback(
   },
   () => {
     $("play").innerHTML = "▶ <span>Play</span>";
-    $("mobile-play").textContent = "▶ Play";
+    $("play").setAttribute("aria-label", "Play composition");
+    $("transport-position").textContent = "Ready to play";
     $("sequence")
       .querySelectorAll(".playing")
       .forEach((n) => n.classList.remove("playing"));
@@ -188,8 +193,8 @@ const playback = new Playback(
   },
 );
 function updateHistory() {
-  for (const id of ["undo", "mobile-undo"]) $(id).disabled = !history.canUndo;
-  for (const id of ["redo", "mobile-redo"]) $(id).disabled = !history.canRedo;
+  $("undo").disabled = !history.canUndo;
+  $("redo").disabled = !history.canRedo;
   dirty = JSON.stringify(project) !== savedSignature;
   $("save-project").textContent = dirty ? "Save project •" : "Save project";
 }
@@ -568,7 +573,6 @@ function drawSequence(focusIndex = null, focusAction = null) {
 function updateTransport() {
   const empty = !project.progression.length && !project.melody.length;
   $("play").disabled = $("export-midi").disabled = empty;
-  $("mobile-play").disabled = empty;
   $("play-melody").disabled = !project.melody.length;
   $("export-wav").disabled = empty || exporting;
 }
@@ -585,18 +589,16 @@ function drawMelody(focusCell = null) {
   grid.style.setProperty("--roll-columns", melodyColumns);
   grid.style.setProperty("--grid-count", melodyColumns);
   grid.replaceChildren(el("span", "roll-label", ""));
-  for (let col = 0; col < melodyColumns; col++)
-    grid.append(
-      el(
-        "span",
-        "roll-label beat",
-        ((startBeat + col * melodyStep) / (4 / meterOf(project).denominator)) %
-          1 ===
-          0
-          ? positionLabel(startBeat + col * melodyStep, project)
-          : "+",
-      ),
-    );
+  const positions = barBeats(project) / melodyStep;
+  $("grid-position-count").textContent = `${positions} per bar`;
+  for (let col = 0; col < melodyColumns; col++) {
+    const start = startBeat + col * melodyStep;
+    const position = Math.round((start % barBeats(project)) / melodyStep) + 1;
+    const label = el("span", "roll-label beat", String(position));
+    label.dataset.start = start;
+    label.title = `Bar ${Math.floor(start / barBeats(project)) + 1}, position ${position} · beat ${positionLabel(start, project)}`;
+    grid.append(label);
+  }
   const rows = melodyRows(
     project.key,
     project.mode,
@@ -731,6 +733,8 @@ function drawMelody(focusCell = null) {
   updateTransport();
 }
 function updateLoopSummary() {
+  $("session-context").textContent =
+    `${KEYS[project.key]} ${project.mode === "major" ? "major" : "minor"} · ${meterOf(project).numerator}/${meterOf(project).denominator}`;
   drawPedal();
   const page = +$("melody-page").value || 0;
   const phrase = melodyLength(project) || barBeats(project);
@@ -1154,8 +1158,6 @@ function restoreHistory(direction) {
 }
 $("undo").onclick = () => restoreHistory("undo");
 $("redo").onclick = () => restoreHistory("redo");
-$("mobile-undo").onclick = $("undo").onclick;
-$("mobile-redo").onclick = $("redo").onclick;
 document.addEventListener("keydown", (e) => {
   if (
     !(e.ctrlKey || e.metaKey) ||
@@ -1253,17 +1255,13 @@ $("stop").onclick = () => {
   piano.panic();
   report("Stopped. All notes released.");
 };
-$("mobile-play").onclick = () => $("play").onclick();
-$("mobile-stop").onclick = () => $("stop").onclick();
 $("play-melody").onclick = () => play("melody");
 $("loop").onclick = () => {
   loop = !loop;
   playback.loop = loop;
   $("loop").setAttribute("aria-pressed", String(loop));
   $("loop").textContent = loop ? "↻ Loop on" : "↻ Loop off";
-  $("mobile-loop").setAttribute("aria-pressed", String(loop));
 };
-$("mobile-loop").onclick = () => $("loop").onclick();
 $("tempo").onchange = () => {
   const tempo = +$("tempo").value;
   if (!Number.isInteger(tempo) || tempo < 40 || tempo > 220) {
@@ -1649,6 +1647,7 @@ piano.onTap = (pitch, seconds, velocity) => {
 };
 $("record-melody").onclick = async () => {
   if (recordPending || recorder) return;
+  $("keys-workspace").scrollIntoView({ block: "start" });
   edit();
   piano.panic();
   const request = ++recordRequest;

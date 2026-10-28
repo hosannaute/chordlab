@@ -1144,9 +1144,7 @@ footer a {
 .session-actions {
   max-width: none;
 }
-.mobile-transport {
-  display: none;
-}
+
 .chord-inspector {
   grid-column: 2;
   grid-row: 1;
@@ -1246,19 +1244,11 @@ footer a {
   border-color: #d99487;
 }
 @media (max-width: 720px) {
-  main {
-    padding-bottom: 90px;
-  }
   .session-actions {
     width: 100%;
     justify-content: flex-start;
   }
-  .history-actions {
-    display: none;
-  }
-  .transport .transport-buttons {
-    display: none;
-  }
+
   .transport {
     gap: 12px;
   }
@@ -1289,30 +1279,7 @@ footer a {
   .piano .black {
     font-size: 10px;
   }
-  .mobile-transport {
-    display: flex;
-    position: fixed;
-    z-index: 10;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    gap: 7px;
-    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
-    border-top: 1px solid #59644e;
-    background: #1c231d;
-  }
-  .mobile-transport button {
-    min-height: 48px;
-  }
-  #mobile-play {
-    flex: 1;
-  }
-  #mobile-undo,
-  #mobile-redo {
-    min-width: 45px;
-    font-size: 22px;
-    padding: 5px;
-  }
+
   .melody-grid {
     grid-template-columns: 34px repeat(var(--roll-columns, 8), minmax(0, 1fr));
   }
@@ -1400,22 +1367,9 @@ footer a {
 .audio-error {
   color: #ffb7ac;
 }
-#mobile-loop {
-  min-width: 44px;
-  padding: 5px;
-  font-size: 22px;
-}
-@media (max-width: 720px) {
-  .mobile-transport {
-    gap: 5px;
-  }
-  .mobile-transport button {
-    padding-left: 9px;
-    padding-right: 9px;
-  }
-}
+
 .studio-tools {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 .studio-tools summary {
   cursor: pointer;
@@ -1510,5 +1464,288 @@ footer a {
   }
   .export-control {
     width: 100%;
+  }
+}
+/* A quiet workspace with one transport shared by every screen size. */
+html {
+  scroll-padding-top: 140px;
+}
+.session-header {
+  padding-top: 28px;
+}
+.transport {
+  position: sticky;
+  top: 8px;
+  z-index: 8;
+  gap: 18px;
+  background: #242c26;
+  border-color: #647455;
+  box-shadow: 0 8px 24px #11161270;
+  margin-bottom: 16px;
+}
+.transport .transport-buttons {
+  display: flex;
+  width: auto;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.transport .tempo-control {
+  flex: none;
+  padding-left: 18px;
+  border-left: 1px solid var(--line);
+}
+.transport-position {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+#record-melody {
+  color: #f1bcad;
+  background: #3a2d29;
+}
+#finish-recording:disabled {
+  display: none;
+}
+#record-melody:disabled {
+  display: none;
+}
+#finish-recording {
+  border-color: #ba7969;
+  background: #3a2d29;
+  color: #f1bcad;
+}
+.grid-help {
+  margin-top: 10px;
+}
+.workspace-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.workspace-tools > .panel {
+  padding: 0 18px;
+  min-width: 0;
+}
+summary {
+  cursor: pointer;
+}
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.workspace-tools summary {
+  padding: 17px 0;
+  font-size: 13px;
+  min-height: 52px;
+}
+#session-context {
+  color: var(--accent);
+  margin-left: 12px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.session-settings-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 6px 0 20px;
+  align-items: end;
+}
+.session-settings-content .export-control {
+  order: 1;
+  width: 100%;
+  margin: 0;
+}
+.workspace-nav {
+  display: flex;
+  gap: 8px;
+  padding: 18px 0;
+}
+.workspace-nav a {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  min-height: 44px;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+.workspace-nav a:hover {
+  background: #2e392a;
+  border-color: var(--accent);
+}
+.workspace-nav span {
+  color: #e6e9e2;
+  font-size: 13px;
+}
+.custom-chord-panel {
+  margin-top: 18px;
+}
+.custom-chord-panel summary,
+.phrase-settings summary,
+.record-controls summary {
+  min-height: 44px;
+  display: list-item;
+  align-content: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.record-controls {
+  padding: 0 14px;
+  margin: 8px 0 12px;
+}
+.record-controls[open] {
+  padding-bottom: 14px;
+}
+.record-controls .row {
+  margin-top: 8px;
+}
+.phrase-settings {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+  padding: 0 0 8px;
+}
+.phrase-settings > .row {
+  padding-top: 8px;
+}
+.grid-legend {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted);
+  margin: 18px 3px 5px;
+}
+.melody-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 12px 24px;
+}
+.melody-toolbar .phrase-actions {
+  margin-bottom: 0;
+}
+.melody-bottom {
+  margin-bottom: 16px;
+}
+.melody-panel .phrase-settings {
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  padding-top: 6px;
+}
+.grid-legend strong {
+  color: var(--accent);
+  font-weight: 500;
+  margin-left: 6px;
+}
+.grid-legend i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+  border-radius: 2px;
+  margin-right: 5px;
+}
+.roll-label.beat {
+  font-size: 12px;
+  color: #d4ddc9;
+  background: #2c352b;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.roll-label.beat.playhead {
+  color: var(--ink);
+  background: var(--accent);
+  font-weight: 700;
+}
+.roll-cell.playhead {
+  box-shadow: inset 0 0 0 1px #c2dc9d;
+  border-bottom: 3px solid var(--accent);
+}
+@media (max-width: 720px) {
+  main {
+    padding-bottom: 0;
+  }
+  .session-header {
+    padding-top: 22px;
+  }
+  .history-actions {
+    display: flex;
+  }
+  .transport {
+    top: 0;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 0 0 10px 10px;
+  }
+  .transport .transport-buttons {
+    width: 100%;
+    display: flex;
+    gap: 5px;
+  }
+  .transport .transport-buttons button {
+    flex: 1;
+    padding: 8px 6px;
+    font-size: 11px;
+    min-width: 0;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .transport .tempo-control {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 0;
+    border: 0;
+  }
+  .transport .tempo-control label {
+    margin: 0;
+  }
+  .transport .tempo-control input {
+    width: 54px;
+    font-size: 17px;
+    min-height: 36px;
+  }
+  .transport-position {
+    font-size: 10px;
+    margin-left: auto;
+    max-width: 48%;
+  }
+  .workspace-tools {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .workspace-tools summary {
+    font-size: 12px;
+  }
+  #session-context {
+    margin-left: 8px;
+    font-size: 11px;
+  }
+  .workspace-nav {
+    gap: 7px;
+    padding: 14px 0;
+  }
+  .workspace-nav a {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 6px;
+    gap: 7px;
+  }
+  .melody-panel .section-top,
+  .melody-toolbar {
+    margin-bottom: 14px;
+  }
+  .track-sustain .hint {
+    font-size: 11px;
+  }
+  .roll-label.beat {
+    font-size: 11px;
   }
 }

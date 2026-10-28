@@ -1,5 +1,14 @@
 # Verification record
 
+## 2.7 focused studio layout — 28 October 2026
+
+- All **70 automated tests pass**, and the production build succeeds. The audio engine, composition schema and loop timing are unchanged in this layout release.
+- One sticky transport serves desktop and phone: Play/Stop/Loop, Record/Finish, Tempo and current melody bar/position. No duplicate mobile controls or handlers remain. Record brings the piano into view; Finish replaces Record while preparing/recording, including count-in. Position text is not a continuous screen-reader announcement.
+- Session/export, track mixer/pedal, sound, recording options, custom/borrowed chords and phrase settings fold away. Track sustain remains visible. Chords/Keys/Melody anchors land below the sticky transport. Grid position labels are 1–8 by default, with a highlighted label and column during playback. Beat coordinates remain available in cell names and label tooltips.
+- Actual browser controls verified: changed home key to D and meter to 7/8 while retaining eight labeled positions; added an E-flat diminished chord; mute/unmute, bar pedal, independent sustain; switched to 16 positions and back to eight; added a melody bar then undid it; recorded from the sticky bar and finished a take. The melody editor was locked during recording and usable afterward.
+- Real responsive frames: 390 / 360 / 720 / 1200 px have document client width equal to scroll width (375 / 345 / 705 / 1185 after scrollbars). Expanded session/mixer panels fit the small phone. At 360 px, visible transport buttons have matching content/client widths during count-in; tempo and Stop/Finish remain reachable. These are browser frames, not physical-device tests.
+- Compiled release: filled all eight positions, played through repeated loops with chord accompaniment, observed advancing numbered playhead, and stopped. Exported real MIDI and stereo PCM WAV through the relocated controls. Console returned no warnings/errors. Existing real-audio DSP results below are retained as history, not presented as rerun for this layout change.
+
 ## 2.6 recording, recovery, mixing and audio export — 28 October 2026
 
 - **70 automated tests pass**: original harmony/timing/loop checks plus queued tempo rescheduling at 60/220 BPM, active hold deadlines, 7/8 count-in clock, strict mixer/pedal/piano validation, recovery history/canonical signatures/corrupt storage, recording quantization/overdub/count-in rejection, WAV PCM/bounds, 42 layer-file checksums, MIDI mute/solo/velocity/volume/pedal and repeated pedal phrases.
