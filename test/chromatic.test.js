@@ -99,21 +99,25 @@ test("custom chord import rejects unknown qualities, invalid sources and inversi
     }),
   );
 });
-test("new phrases end at eight musical bars and cannot append a ninth", () => {
+test("new phrases show just one bar; adding bars is explicit and bounded", () => {
   const p = newProject();
-  assert.equal(p.melodyBars, 8);
-  assert.equal(phraseBarLimit(p), 8);
-  assert.equal(timelineEnd(p), 32);
-  assert.equal(gridLayout(p, true).pages, 8);
-  assert.equal(gridLayout(p, false).pages, 4);
-  p.melody = [{ pitch: 60, start: 31.5, beats: 0.5 }];
-  assert.equal(melodyLength(p), 32);
+  assert.equal(p.melodyBars, 1);
+  assert.equal(phraseBarLimit(p), 32);
+  assert.equal(timelineEnd(p), 128);
+  assert.equal(gridLayout(p, true).pages, 1);
+  assert.equal(gridLayout(p, false).columns, 8);
+  p.melody = [{ pitch: 60, start: 3.5, beats: 0.5 }];
+  assert.equal(melodyLength(p), 4);
   assert.equal(validateProject(p).melody.length, 1);
-  assert.throws(() => repeatPhrase(p), /exceeds/);
+  const repeated = repeatPhrase(p);
+  assert.equal(repeated.melodyBars, 2);
+  assert.equal(gridLayout(repeated, false).pages, 2);
+  assert.equal(repeated.melody[1].start, 7.5);
+  assert.equal(p.melodyBars, 1);
   p.meter = { numerator: 7, denominator: 8 };
   p.melody = [];
-  assert.equal(timelineEnd(p), 28);
-  assert.equal(gridLayout(p, true).pages, 8);
+  assert.equal(timelineEnd(p), 126);
+  assert.equal(gridLayout(p, true).pages, 1);
 });
 test("longer legacy phrases remain recoverable instead of losing stored notes", () => {
   const p = {
@@ -123,8 +127,9 @@ test("longer legacy phrases remain recoverable instead of losing stored notes", 
   };
   const valid = parseProject(JSON.stringify(p));
   assert.deepEqual(valid.melody, p.melody);
-  assert.equal(phraseBarLimit(valid), 11);
-  assert.equal(timelineEnd(valid), 44);
+  assert.equal(phraseBarLimit(valid), 32);
+  assert.equal(melodyLength(valid), 44);
+  assert.equal(gridLayout(valid, false).pages, 11);
 });
 test("saving an earlier project makes it the project restored on reload", () => {
   const map = new Map(),

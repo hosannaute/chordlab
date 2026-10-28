@@ -9,7 +9,12 @@ import {
   buildChord,
   resolveChord,
 } from "./theory.js";
-import { newProject, transposeProject, validateProject } from "./project.js";
+import {
+  newProject,
+  transposeProject,
+  validateProject,
+  changeProjectMeter,
+} from "./project.js";
 import {
   readProjects,
   saveProject,
@@ -35,7 +40,8 @@ import {
   gridLayout,
   positionLabel,
   MAX_BEATS,
-  NOTE_LENGTHS,
+  MIN_STEP,
+  noteLengths,
   timelineEnd,
   phraseBarLimit,
 } from "./timing.js";
@@ -81,9 +87,9 @@ function showSoundStatus(state) {
 }
 const phoneLayout = window.matchMedia("(max-width: 720px)");
 let compact = phoneLayout.matches;
-let melodyColumns = compact ? 8 : 16;
+let melodyColumns = 8;
 let melodyStep = 0.5,
-  melodySpan = compact ? 4 : 8;
+  melodySpan = 4;
 const history = new History(project);
 let savedSignature = JSON.stringify(project);
 let gesture = null,
@@ -478,14 +484,13 @@ function drawMelody(focusCell = null) {
           } else {
             if (project.melody.length >= 512)
               return report("Maximum 512 melody notes.", true);
-            const beats = NOTE_LENGTHS.filter(
-              (length) =>
-                length <=
+            const beats =
+              Math.floor(
                 Math.min(
                   +$("note-duration").value,
-                  timelineEnd(project) - start,
-                ),
-            ).at(-1);
+                  Math.max(barBeats(project), melodyLength(project)) - start,
+                ) / MIN_STEP,
+              ) * MIN_STEP;
             if (project.melodyBars && start + beats > melodyLength(project))
               return report(
                 "Add a bar or choose a longer loop before adding a note here.",
@@ -568,7 +573,7 @@ function drawMelody(focusCell = null) {
       n.start >= startBeat + melodySpan,
   ).length;
   $("melody-view-hint").textContent =
-    `${KEYS[project.key]} ${project.mode} · bar${compact ? "" : "s"} ${$("melody-page").selectedOptions[0]?.textContent || "1"} · grid ${melodyStep} quarter beats${outside ? ` · ${outside} note${outside === 1 ? "" : "s"} in other bars or octaves` : ""}`;
+    `${KEYS[project.key]} ${project.mode} · bar ${$("melody-page").selectedOptions[0]?.textContent || "1"} · ${barBeats(project) / melodyStep} positions per bar${outside ? ` · ${outside} note${outside === 1 ? "" : "s"} in other bars or octaves` : ""}`;
   $("melody-deselect").disabled = !note;
   updateLoopSummary();
   updateTransport();
@@ -578,7 +583,7 @@ function updateLoopSummary() {
   const phrase = melodyLength(project) || barBeats(project);
   const chordLength = project.progression.reduce((sum, c) => sum + c.beats, 0);
   $("loop-summary").textContent =
-    `Melody: ${phrase / barBeats(project)}-bar loop · ${phraseBarLimit(project)}-bar phrase limit · Chords: ${Number((chordLength / barBeats(project)).toFixed(3))}-bar loop. Both follow the same tempo. Up to 512 melody notes.${phraseBarLimit(project) > 8 ? " Longer saved phrase preserved." : " No ninth bar."}`;
+    `Melody: ${phrase / barBeats(project)}-bar loop · Chords: ${Number((chordLength / barBeats(project)).toFixed(3))}-bar loop. The melody repeats continuously at the same tempo. Use Add bar when you want a longer phrase. Up to 512 melody notes.`;
   $("melody-prev").disabled = page === 0;
   $("melody-next").disabled = page >= $("melody-page").options.length - 1;
   $("melody-add-bar").disabled =
@@ -635,6 +640,7 @@ $("melody-grid").addEventListener("pointermove", (e) => {
     ? {
         beats: resizeLength(
           +cell.dataset.start + melodyStep - gesture.original.start,
+          noteLengths(project),
         ),
       }
     : {
@@ -814,11 +820,10 @@ function renderProject() {
   showSoundStatus();
   $("meter-numerator").value = meterOf(p).numerator;
   $("meter-denominator").value = meterOf(p).denominator;
-  // Reveal fine-grid notes when opening a project or restoring history.
-  if (p.melody.some((n) => n.start % 0.25 || n.beats < 0.25))
-    $("melody-step").value = "0.125";
-  else if (p.melody.some((n) => n.start % 0.5 || n.beats < 0.5))
-    $("melody-step").value = "0.25";
+  $("chord-sustain").value = p.sustain?.chords || 0;
+  $("melody-sustain").value = p.sustain?.melody || 0;
+  $("melody-step").value = "8";
+  $("note-duration").value = "";
   drawMelodyPages(+$("melody-page").value * melodySpan);
   drawPalette();
   drawSequence();
@@ -890,17 +895,36 @@ $("add-custom-chord").onclick = () => {
   hear(chord);
 };
 function drawMelodyPages(beat = 0) {
-  const required = [0.5, 0.25, 0.125].find((step) =>
-    project.melody.every(
-      (note) => note.start % step === 0 && note.beats >= step,
+  const layout = gridLayout(project, compact, +$("melody-step").value || 8);
+  const positions = barBeats(project) / layout.step;
+  $("melody-step").replaceChildren(
+    ...[8, 16, 32]
+      .filter((count) => barBeats(project) / count >= MIN_STEP)
+      .map((count) => new Option(`${count} positions / bar`, count)),
+  );
+  if (![8, 16, 32].includes(positions))
+    $("melody-step").add(
+      new Option(`Saved note grid · ${positions} / bar`, positions),
+    );
+  $("melody-step").value = positions;
+  const previousDuration = +$("note-duration").value;
+  const lengths = noteLengths(project);
+  $("note-duration").replaceChildren(
+    ...lengths.map(
+      (length) =>
+        new Option(
+          length === barBeats(project)
+            ? "1 bar"
+            : length === layout.step
+              ? "1 position"
+              : `${Number((length / layout.step).toFixed(3))} positions`,
+          length,
+        ),
     ),
   );
-  const layout = gridLayout(
-    project,
-    compact,
-    Math.min(+$("melody-step").value, required),
-  );
-  $("melody-step").value = layout.step;
+  $("note-duration").value = lengths.includes(previousDuration)
+    ? previousDuration
+    : layout.step;
   melodyColumns = layout.columns;
   melodyStep = layout.step;
   melodySpan = layout.span;
@@ -1161,9 +1185,26 @@ $("sustain").onclick = () => {
   piano.buttonSustain = !piano.buttonSustain;
   piano.refreshSustain();
 };
+for (const [id, part] of [
+  ["chord-sustain", "chords"],
+  ["melody-sustain", "melody"],
+])
+  $(id).onchange = () => {
+    edit();
+    project.sustain = {
+      chords: 0,
+      melody: 0,
+      ...project.sustain,
+      [part]: +$(id).value,
+    };
+    changed(
+      `${part === "chords" ? "Chord" : "Melody"} sustain updated. Press Play to hear it.`,
+    );
+  };
 $("melody-page").onchange = () => drawMelody();
 $("melody-step").onchange = () => {
   cancelMelodyGesture();
+  $("note-duration").value = "";
   drawMelodyPages(+$("melody-page").value * melodySpan);
   drawMelody();
 };
@@ -1206,7 +1247,8 @@ $("melody-repeat").onclick = () => {
     const previous = melodyLength(project),
       next = repeatPhrase(project);
     edit();
-    project = next;
+    project.melody = next.melody;
+    project.melodyBars = next.melodyBars;
     selectedNote = -1;
     drawMelodyPages(previous);
     changed("Repeated the phrase with editable copies of its notes.");
@@ -1232,31 +1274,11 @@ function changeMeter() {
       numerator: +$("meter-numerator").value,
       denominator: +$("meter-denominator").value,
     };
-    const candidate = { ...project, meter, melodyBars: 0 };
-    const requiredBars = Math.ceil(
-      Math.max(0, ...project.melody.map((note) => note.start + note.beats)) /
-        barBeats(candidate),
-    );
-    if (requiredBars > phraseBarLimit(project))
-      throw new Error(
-        `This meter would put existing notes beyond the ${phraseBarLimit(project)}-bar phrase. Move those notes earlier before changing meter.`,
-      );
-    if (project.melodyBars)
-      candidate.melodyBars = Math.max(
-        Math.min(
-          project.melodyBars,
-          Math.floor(MAX_BEATS / barBeats(candidate)),
-        ),
-        Math.ceil(
-          Math.max(0, ...project.melody.map((n) => n.start + n.beats)) /
-            barBeats(candidate),
-        ),
-      );
-    const next = validateProject(candidate);
+    const next = changeProjectMeter(project, meter);
     edit();
     project = next;
     changed(
-      "Time signature updated. Note timing is preserved; use One bar per chord to fit the harmony.",
+      "Time signature updated. Melody notes keep their bar positions; use One bar per chord to fit the harmony.",
     );
     renderProject();
   } catch (e) {

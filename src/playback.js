@@ -75,7 +75,7 @@ export class Playback {
         if (start >= beat - 0.2) {
           const when = now + (Math.max(0, start - beat) * 60) / this.tempo;
           const duration = Math.min(
-            event.beats,
+            event.beats + (track.sustain || 0),
             track.beats - event.start,
             this.loop ? Infinity : this.endBeat - start,
           );

@@ -44,10 +44,13 @@ test("scale view remains compact and never hides an existing chromatic note with
   assert.equal(melodyRows(0, "major", 4, false).length, 13);
   assert.ok(melodyRows(0, "major", 6, false).every((n) => n <= 95));
 });
-test("responsive page mapping preserves the visible beat and clamps at timeline end", () => {
+test("phone and desktop show the same eight positions in a single bar", () => {
   const phone = gridLayout({}, true),
     desktop = gridLayout({}, false);
   assert.equal(Math.floor(8 / phone.span), 2);
-  assert.equal(Math.floor(8 / desktop.span), 1);
-  assert.equal(phone.pages - 1, 7);
+  assert.equal(Math.floor(8 / desktop.span), 2);
+  assert.equal(phone.columns, 8);
+  assert.equal(desktop.columns, 8);
+  assert.equal(phone.pages, 1);
+  assert.equal(desktop.pages, 1);
 });

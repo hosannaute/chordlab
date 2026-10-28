@@ -1,9 +1,9 @@
 import { scale } from "./theory.js";
-import { MIN_STEP, NOTE_LENGTHS } from "./timing.js";
+import { MIN_STEP, NOTE_LENGTHS, validNoteLength } from "./timing.js";
 import { melodyLength, barBeats, timelineEnd } from "./timing.js";
 export { NOTE_LENGTHS } from "./timing.js";
-export function resizeLength(beats) {
-  return NOTE_LENGTHS.reduce((best, value) =>
+export function resizeLength(beats, lengths = NOTE_LENGTHS) {
+  return lengths.reduce((best, value) =>
     Math.abs(value - beats) <= Math.abs(best - beats) ? value : best,
   );
 }
@@ -17,7 +17,7 @@ export function changeNote(notes, index, patch) {
     !Number.isFinite(note.start) ||
     note.start < 0 ||
     (note.start / MIN_STEP) % 1 ||
-    !NOTE_LENGTHS.includes(note.beats) ||
+    !validNoteLength(note.beats) ||
     note.start + note.beats > 128
   )
     throw new Error(

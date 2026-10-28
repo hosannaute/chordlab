@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newProject, validateProject, composition } from "../src/project.js";
+import {
+  newProject,
+  validateProject,
+  composition,
+  changeProjectMeter,
+} from "../src/project.js";
 import {
   barBeats,
   melodyLength,
@@ -10,8 +15,29 @@ import {
   timelineEnd,
 } from "../src/timing.js";
 import { repeatPhrase } from "../src/melody.js";
+test("changing meter keeps a filled eight-position phrase in the same single bar", () => {
+  let p = newProject();
+  p.sustain = { chords: 0.5, melody: 2 };
+  p.melody = Array.from({ length: 8 }, (_, index) => ({
+    pitch: 60 + index,
+    start: index / 2,
+    beats: 0.5,
+  }));
+  for (const denominator of DENOMINATORS)
+    for (let numerator = 1; numerator <= 32; numerator++) {
+      p = changeProjectMeter(p, { numerator, denominator });
+      assert.equal(p.melodyBars, 1);
+      assert.equal(gridLayout(p, false).columns, 8);
+      assert.equal(gridLayout(p, false).pages, 1);
+      p.melody.forEach((note, index) => {
+        assert.equal(note.start, (index * barBeats(p)) / 8);
+        assert.equal(note.beats, barBeats(p) / 8);
+      });
+      assert.deepEqual(p.sustain, { chords: 0.5, melody: 2 });
+    }
+});
 
-test("custom meters use quarter-note time and bounded pages, including odd and compound meters", () => {
+test("all supported meters fit eight equal note positions in exactly one bar", () => {
   for (const denominator of DENOMINATORS)
     for (let numerator = 1; numerator <= 32; numerator++) {
       const p = {
@@ -22,11 +48,18 @@ test("custom meters use quarter-note time and bounded pages, including odd and c
       assert.equal(barBeats(p), (numerator * 4) / denominator);
       assert.deepEqual(validateProject(p).meter, p.meter);
       for (const compact of [true, false]) {
-        const grid = gridLayout(p, compact, 0.5);
-        assert.ok(grid.columns <= 32 && grid.columns >= 1);
-        assert.ok(Number.isInteger(grid.columns));
-        assert.ok(grid.step <= 4 / denominator);
-        assert.ok(grid.pages * grid.span >= timelineEnd(p));
+        const grid = gridLayout(p, compact);
+        assert.equal(grid.columns, 8);
+        assert.equal(grid.span, barBeats(p));
+        assert.equal(grid.pages, 1);
+        const notes = Array.from({ length: 8 }, (_, index) => ({
+          pitch: 60 + index,
+          start: index * grid.step,
+          beats: grid.step,
+        }));
+        const filled = validateProject({ ...p, melodyBars: 1, melody: notes });
+        assert.equal(melodyLength(filled), barBeats(p));
+        assert.equal(gridLayout(filled, compact).columns, 8);
         assert.ok(timelineEnd(p) <= 128 && timelineEnd(p) % barBeats(p) === 0);
       }
       assert.equal(positionLabel(barBeats(p), p), "2:1");

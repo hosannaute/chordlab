@@ -1,5 +1,15 @@
 # Verification record
 
+## 2.5 one-bar melody and sequenced sustain — 28 October 2026
+
+- Automated checks: **60 tests pass**. All 192 supported meters fit eight equal note positions in one bar, on both layouts. Changing a filled phrase through every meter retains its eight bar-relative positions. Scheduler checks verify gapless note-eight → note-one timing while longer chords continue. Explicit Add bar/Repeat phrase, legacy notes, save/import validation, independent sustain gates, boundary clipping, cancellation, and same-pitch MIDI retriggers are covered.
+- Real browser: a new desktop project starts with one bar, eight columns and a one-position note length. Filled eight notes in 4/4, played repeatedly with chords, stopped, saved and reloaded: one bar and independent Short chord / Long melody sustain retained. Add bar created exactly a second page; Undo restored one. Repeat phrase created 16 notes in two bars; editing the first chord afterward survived save/reload.
+- Odd meter: 7/8 exposes starts `0, 0.4375, …, 3.0625` quarter beats; eight notes fill one 3.5-quarter bar without another page. Changing a filled bar to 4/4 retains eight positions and one bar.
+- Phone frames: 390px and 360px widths show eight positions per bar, usable sustain controls, and document scroll width equal to client width (375px/345px after scrollbars).
+- Actual OfflineAudioContext harness: **10/10 checks pass**. Five synths, sampled grand piano, both cancellation checks, and independent chord/melody sustain renders for Soft Piano and Grand Piano. Wet tails contain signal after dry tails become silent; no retained voices. Sampled bank peak 0.0762, 21 files, 96.0 MiB decoded in this browser.
+- MIDI now uses 960 PPQN to represent the finest supported eight-position bar exactly. Sustain exports as extended gates; repeated same-pitch attacks remain separate.
+- Existing saved multi-bar phrases retain their explicit length. Choose Loop length → 1 bar or Auto to remove unwanted trailing empty bars. No music is silently trimmed.
+
 ## Chromatic chords, Sustain and eight-bar phrases (2.4)
 
 Verified on 27 October 2026 with Node 24 on Windows and the Chromium-based in-app browser:

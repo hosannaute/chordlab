@@ -1096,6 +1096,23 @@ footer a {
   text-align: center;
   flex-shrink: 0;
 }
+.track-sustain {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.track-sustain label {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+}
+.track-sustain select {
+  max-width: 210px;
+  font-size: 13px;
+}
+.track-sustain .hint {
+  flex: 1 1 180px;
+}
 .sustain-control button {
   min-height: 48px;
   border-color: var(--accent);
