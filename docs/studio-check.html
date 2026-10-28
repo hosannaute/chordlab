@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>CHORDLAB · Studio verification</title
+  ><style>
+    body {
+      font: 16px system-ui;
+      background: #171b1a;
+      color: #e6e9e2;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    button {
+      padding: 15px;
+      font: inherit;
+    }
+    pre {
+      white-space: pre-wrap;
+      line-height: 1.8;
+    }
+  </style>
+  <h1>Studio audio verification</h1>
+  <p>
+    Renders the actual soft/hard piano pack, WAV export, active-voice tempo
+    retiming and metronome using OfflineAudioContext.
+  </p>
+  <button id="run">Run studio verification</button>
+  <pre id="result" role="status">Ready.</pre>
+  <script type="module">
+    import { AudioEngine } from "../src/audio.js";
+    import { GrandPiano } from "../src/grand-piano.js";
+    import { newProject } from "../src/project.js";
+    import { renderWav } from "../src/wav.js";
+    const output = document.querySelector("#result");
+    const check = (condition, message) => {
+      if (!condition) throw new Error(message);
+    };
+    const energy = (buffer, start = 0, end = buffer.duration) =>
+      buffer
+        .getChannelData(0)
+        .slice(
+          Math.floor(start * buffer.sampleRate),
+          Math.floor(end * buffer.sampleRate),
+        )
+        .reduce((sum, value) => sum + value * value, 0);
+    const engine = (context, instrument = "grand-piano") => {
+      const a = new AudioEngine();
+      a.context = context;
+      a.master = context.createGain();
+      a.master.gain.value = 0.65;
+      a.master.connect(context.destination);
+      a.instrument = instrument;
+      return a;
+    };
+    document.querySelector("#run").onclick = async () => {
+      const reports = [];
+      output.textContent = "Loading optional piano layers…";
+      try {
+        const decoding = new OfflineAudioContext(2, 44100, 44100),
+          bank = new GrandPiano(decoding);
+        await bank.load(true);
+        check(
+          bank.buffers.size === 42 &&
+            bank.get(60, 48, true).buffer !== bank.get(60, 112, true).buffer,
+          "Velocity layers did not decode separately",
+        );
+        reports.push(
+          "PASS 42 soft/hard recordings decoded; velocity selects different recorded samples",
+        );
+        output.textContent = reports.join("\n");
+        const peaks = [];
+        for (const velocity of [48, 112]) {
+          const context = new OfflineAudioContext(1, 44100 * 2, 44100),
+            audio = engine(context);
+          audio.grandPiano = bank;
+          audio.piano.layers = true;
+          audio.note(60, 0.05, 0.8, "transport", { velocity });
+          const rendered = await context.startRendering();
+          let peak = 0;
+          for (const value of rendered.getChannelData(0)) {
+            check(Number.isFinite(value), "Invalid layered sample");
+            peak = Math.max(peak, Math.abs(value));
+          }
+          check(
+            peak > 0 && peak < 1 && !audio.voices.size,
+            "Layered voice signal/cleanup failed",
+          );
+          peaks.push(peak);
+        }
+        check(
+          peaks[1] > peaks[0] * 1.5,
+          "Velocity did not change the rendered dynamics",
+        );
+        reports.push(
+          `PASS recorded piano dynamics: soft peak ${peaks[0].toFixed(4)}, hard peak ${peaks[1].toFixed(4)}, no retained voices`,
+        );
+        const project = newProject();
+        project.instrument = "grand-piano";
+        project.piano.layers = true;
+        project.tempo = 120;
+        project.meter = { numerator: 1, denominator: 4 };
+        project.progression = [
+          { degree: 0, beats: 1, inversion: 0, seventh: false },
+        ];
+        project.melody = [
+          { pitch: 60, start: 0, beats: 0.5, velocity: 48 },
+          { pitch: 64, start: 0.5, beats: 0.5, velocity: 112 },
+        ];
+        project.mix.chords.mute = true;
+        let wav = await renderWav(project, { bank });
+        let view = new DataView(wav.buffer);
+        check(
+          new TextDecoder().decode(wav.slice(0, 4)) === "RIFF" &&
+            view.getUint16(22, true) === 2 &&
+            view.getUint32(24, true) === 44100,
+          "WAV header invalid",
+        );
+        const decoded = await decoding.decodeAudioData(wav.buffer.slice(0));
+        check(energy(decoded) > 0, "WAV was silent");
+        check(
+          !decoded
+            .getChannelData(0)
+            .slice(-2205)
+            .some((n) => Math.abs(n) > 0.0001),
+          "WAV release tail incomplete",
+        );
+        project.mix.melody.mute = true;
+        wav = await renderWav(project, { bank });
+        check(
+          wav.slice(44).every((value) => value === 0),
+          "Muted mixer leaked into WAV",
+        );
+        reports.push(
+          "PASS stereo PCM WAV: real layered piano, complete tail, mixer mute produces exact silence",
+        );
+        const retimeContext = new OfflineAudioContext(1, 44100 * 1.3, 44100),
+          retimed = engine(retimeContext, "organ"),
+          voice = retimed.note(60, 0.05, 0.25, "transport");
+        const pause = retimeContext.suspend(0.2),
+          rendering = retimeContext.startRendering();
+        await pause;
+        voice.retime(0.9);
+        await retimeContext.resume();
+        const rendered = await rendering;
+        check(
+          energy(rendered, 0.7, 0.8) > 0.0001 && !retimed.voices.size,
+          `Active voice retime energy ${energy(rendered, .7, .8)}, retained ${retimed.voices.size}, planned end ${voice.endTime}`,
+        );
+        reports.push(
+          "PASS active voice retiming: audible beyond original stop, clean release without retained voices",
+        );
+        const clickContext = new OfflineAudioContext(1, 44100 * 0.6, 44100),
+          clicks = engine(clickContext, "soft-piano");
+        clicks.click(0.05, true);
+        clicks.click(0.3, false);
+        const clickRender = await clickContext.startRendering();
+        check(
+          energy(clickRender, 0.05, 0.1) > 0 &&
+            energy(clickRender, 0.3, 0.35) > 0 &&
+            energy(clickRender, 0.5, 0.6) === 0 &&
+            !clicks.clickVoices.size,
+          "Metronome signal or cleanup failed",
+        );
+        reports.push(
+          "PASS accented metronome: two scheduled pulses, silent tail, no retained click voices",
+        );
+        const bytes = [...bank.buffers.values()].reduce(
+          (sum, sample) =>
+            sum + sample.buffer.length * sample.buffer.numberOfChannels * 4,
+          0,
+        );
+        reports.push(
+          `Optional layer bank: ${(bytes / 1048576).toFixed(1)} MiB decoded.\n5 / 5 studio audio checks passed.`,
+        );
+        output.textContent = reports.join("\n");
+      } catch (error) {
+        output.textContent = reports.join("\n") + "\nFAIL " + error.message;
+      }
+    };
+  </script>
+</html>

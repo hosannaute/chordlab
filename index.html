@@ -69,6 +69,18 @@
           Saved in this browser. Export a JSON backup to keep your work safe.
         </p>
         <div id="project-list"></div>
+        <details class="recovery-library">
+          <summary>Recovery drafts</summary>
+          <div class="row">
+            <label class="sr-only" for="draft-list">Recovery draft</label
+            ><select id="draft-list"></select
+            ><button id="recover-draft">Open recovery draft</button>
+          </div>
+          <p class="hint">
+            The most recent unfinished draft reopens automatically after a
+            refresh. Manual saves remain separate.
+          </p>
+        </details>
         <div class="row">
           <button id="export-json">Export JSON</button
           ><button id="import-json">Import JSON</button
@@ -83,6 +95,9 @@
       <div id="status" role="status" aria-live="polite">
         Ready when you are. Audio starts with your first note.
       </div>
+      <p id="autosave-status" class="hint" aria-live="polite">
+        Automatic recovery drafts are saved in this browser.
+      </p>
       <section
         class="transport panel"
         aria-label="Playback and session settings"
@@ -118,6 +133,14 @@
         </div>
         <div class="export-control">
           <button id="export-midi">↓ Export MIDI</button>
+          <button id="export-wav">↓ Export WAV</button>
+          <label class="sr-only" for="wav-cycles">WAV arrangement passes</label>
+          <select id="wav-cycles">
+            <option value="1">1 pass</option>
+            <option value="2">2 passes</option>
+            <option value="4">4 passes</option>
+            <option value="8">8 passes</option>
+          </select>
         </div>
         <div class="setting meter-setting">
           <label for="meter-numerator">TIME SIGNATURE</label>
@@ -144,6 +167,71 @@
             </select>
           </div>
         </div>
+      </section>
+      <section
+        class="panel studio-tools"
+        aria-label="Track mixing and pedal changes"
+      >
+        <details open>
+          <summary>Track mixer &amp; pedal changes</summary>
+          <div class="mixer-grid">
+            <div class="mixer-track">
+              <label for="chords-volume"
+                >CHORD VOLUME
+                <output id="chords-volume-label">80%</output></label
+              ><input
+                id="chords-volume"
+                type="range"
+                min="0"
+                max="100"
+                value="80"
+              />
+              <div class="row">
+                <button id="chords-mute" aria-pressed="false">
+                  Mute chords</button
+                ><button id="chords-solo" aria-pressed="false">
+                  Solo chords
+                </button>
+              </div>
+            </div>
+            <div class="mixer-track">
+              <label for="melody-volume"
+                >MELODY VOLUME
+                <output id="melody-volume-label">100%</output></label
+              ><input
+                id="melody-volume"
+                type="range"
+                min="0"
+                max="100"
+                value="100"
+              />
+              <div class="row">
+                <button id="melody-mute" aria-pressed="false">
+                  Mute melody</button
+                ><button id="melody-solo" aria-pressed="false">
+                  Solo melody
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="row pedal-editor">
+            <label for="pedal-track">PEDAL PART</label
+            ><select id="pedal-track">
+              <option value="chords">Chords</option>
+              <option value="melody">Melody</option></select
+            ><label for="pedal-bar">BAR</label
+            ><select id="pedal-bar"></select
+            ><label class="check"
+              ><input type="checkbox" id="pedal-down" /> Hold pedal in this
+              bar</label
+            ><button id="pedal-all">Pedal every bar</button
+            ><button id="pedal-clear">Clear pedal</button>
+          </div>
+          <p id="pedal-summary" class="hint">
+            Pedal holds notes until the next pedal-up bar. Each phrase clears
+            its pedal at the loop boundary.
+          </p>
+        </details>
       </section>
       <div class="studio-grid">
         <section
@@ -304,7 +392,46 @@
                 ><input id="volume" type="range" min="0" max="100" value="65" />
               </div>
             </div>
+            <div class="row piano-dynamics">
+              <label class="check"
+                ><input id="piano-layers" type="checkbox" /> Expressive piano ·
+                soft/hard recordings</label
+              ><label for="live-velocity">TOUCH VELOCITY</label
+              ><input
+                id="live-velocity"
+                type="range"
+                min="1"
+                max="127"
+                value="96"
+              /><output id="live-velocity-label">96</output
+              ><label for="piano-release">PIANO RELEASE</label
+              ><select id="piano-release">
+                <option value="0.15">Tight</option>
+                <option value="0.35" selected>Natural</option>
+                <option value="0.8">Long</option>
+                <option value="1.5">Very long</option>
+              </select>
+            </div>
           </details>
+          <div class="record-controls">
+            <div class="row">
+              <button id="record-melody">● Record melody</button
+              ><button id="finish-recording" disabled>■ Finish take</button
+              ><label class="check"
+                ><input id="metronome" type="checkbox" /> Metronome</label
+              ><label for="count-in">RECORDING COUNT-IN</label
+              ><select id="count-in">
+                <option value="0">None</option>
+                <option value="1" selected>1 bar</option>
+                <option value="2">2 bars</option>
+              </select>
+            </div>
+            <p id="record-status" class="hint" role="status">
+              Record one pass into the current melody bars using these keys or
+              your computer keyboard. The take snaps to the selected grid; Undo
+              restores it.
+            </p>
+          </div>
           <p id="instrument-status" class="hint" role="status">
             Grand Piano loads its recordings on first play.
           </p>
@@ -465,6 +592,14 @@
           <div id="note-editor" class="note-editor" hidden>
             <span id="selected-note"></span>
             <div class="row">
+              <label for="note-velocity">VELOCITY</label
+              ><input
+                id="note-velocity"
+                type="number"
+                min="1"
+                max="127"
+                value="96"
+              />
               <button
                 data-note-action="earlier"
                 aria-label="Move note one grid step earlier"

@@ -1,4 +1,5 @@
 import { GrandPiano, GRAND_SAMPLES } from "./grand-piano.js";
+import { trackGain } from "./studio.js";
 const PRESETS = {
   "soft-piano": {
     wave: "triangle",
@@ -42,16 +43,24 @@ const PRESETS = {
   },
 };
 export class AudioEngine {
-  constructor({ onStatus = () => {} } = {}) {
+  constructor({ onStatus = () => {}, offline = false } = {}) {
     this.voices = new Set();
     this.volume = 0.65;
     this.instrument = "soft-piano";
     this.generation = 0;
     this.groupVersions = new Map();
     this.onStatus = onStatus;
+    this.offline = offline;
+    this.piano = { layers: false, release: 0.35, velocity: 96 };
+    this.mix = null;
+    this.buses = new Map();
+    this.clickVoices = new Set();
   }
   get grandReady() {
-    return this.grandPiano?.buffers.size === GRAND_SAMPLES.length;
+    return (
+      this.grandPiano?.isReady?.(this.piano.layers) ??
+      this.grandPiano?.buffers.size === GRAND_SAMPLES.length
+    );
   }
   async init() {
     if (!this.context) {
@@ -78,7 +87,7 @@ export class AudioEngine {
           this.onStatus({ state: "loading", loaded, total });
       });
       try {
-        await this.grandPiano.load();
+        await this.grandPiano.load(this.piano.layers);
         if (this.instrument === "grand-piano")
           this.onStatus({ state: "ready" });
       } catch (error) {
@@ -93,30 +102,60 @@ export class AudioEngine {
     if (this.master)
       this.master.gain.setTargetAtTime(value, this.context.currentTime, 0.02);
   }
+  setMix(mix) {
+    this.mix = structuredClone(mix);
+    for (const [part, bus] of this.buses)
+      bus.gain.setTargetAtTime(
+        trackGain(this.mix, part),
+        this.context.currentTime,
+        0.015,
+      );
+  }
+  output(part) {
+    if (!part) return this.master;
+    if (!this.buses.has(part)) {
+      const bus = this.context.createGain();
+      bus.gain.value = trackGain(this.mix, part);
+      bus.connect(this.master);
+      this.buses.set(part, bus);
+    }
+    return this.buses.get(part);
+  }
   note(
     pitch,
     when = this.context.currentTime,
     duration = null,
     group = "live",
+    options = {},
   ) {
+    const velocity = Math.max(
+      1,
+      Math.min(127, options.velocity ?? this.piano.velocity),
+    );
     const a = this.context,
       sampled = this.instrument === "grand-piano",
-      sample = sampled ? this.grandPiano?.get(pitch) : null,
+      sample = sampled
+        ? this.grandPiano?.get(pitch, velocity, this.piano.layers)
+        : null,
       preset = sampled
-        ? { attack: 0.004, release: 0.35 }
+        ? { attack: 0.004, release: this.piano.release }
         : PRESETS[this.instrument];
     if (sampled && !sample)
       throw new Error("Grand piano is not loaded yet. Tap Play to load it.");
+    const start = Math.max(a.currentTime, when);
+    if (this.offline)
+      for (const voice of this.voices)
+        if (voice.endTime <= start) this.voices.delete(voice);
     if (this.voices.size >= 32) {
       const oldest = this.voices.values().next().value;
-      oldest.release(a.currentTime, true);
+      oldest.release(this.offline ? start : a.currentTime, true);
       this.voices.delete(oldest);
     }
     const envelope = a.createGain();
     envelope.gain.value = 0;
-    envelope.connect(this.master);
-    const start = Math.max(a.currentTime, when),
-      peak = sampled ? 0.055 / sample.peak : 0.025;
+    envelope.connect(this.output(options.track));
+    const peak =
+      (sampled ? 0.055 / sample.peak : 0.025) * (velocity / 96) ** 1.5;
     envelope.gain.setValueAtTime(0.0001, start);
     envelope.gain.exponentialRampToValueAtTime(peak, start + preset.attack);
     if (!sampled)
@@ -152,11 +191,41 @@ export class AudioEngine {
       pitch,
       group,
       instrument: this.instrument,
+      start,
+      endTime: Infinity,
+      retime: (time) => {
+        if (voice.endTime <= a.currentTime) return;
+        // Reconstruct the held envelope explicitly. Cancelling a future release's
+        // automation with cancelAndHoldAtTime can retain its near-silent target.
+        const elapsed = Math.max(0, a.currentTime - start);
+        const attackEnd = start + preset.attack;
+        const decayEnd = sampled ? Infinity : attackEnd + preset.decay;
+        const level =
+          elapsed < preset.attack
+            ? 0.0001 * (peak / 0.0001) ** (elapsed / preset.attack)
+            : sampled
+              ? peak
+              : peak *
+                Math.max(0.0001 / peak, preset.sustain) **
+                  Math.min(1, (elapsed - preset.attack) / preset.decay);
+        envelope.gain.cancelScheduledValues(a.currentTime);
+        envelope.gain.setValueAtTime(Math.max(0.0001, level), a.currentTime);
+        if (a.currentTime < attackEnd)
+          envelope.gain.exponentialRampToValueAtTime(peak, attackEnd);
+        if (!sampled && a.currentTime < decayEnd)
+          envelope.gain.exponentialRampToValueAtTime(
+            Math.max(0.0001, peak * preset.sustain),
+            decayEnd,
+          );
+        released = false;
+        voice.release(time);
+      },
       release: (time = a.currentTime, immediate = false) => {
         if (released && !immediate) return;
         released = true;
         const at = Math.max(a.currentTime, time),
           tail = immediate ? 0.015 : preset.release;
+        voice.endTime = at + tail + 0.01;
         if (at < start) {
           envelope.gain.cancelScheduledValues(at);
           envelope.gain.setValueAtTime(0, at);
@@ -197,6 +266,35 @@ export class AudioEngine {
     for (const voice of this.voices)
       if (!group || voice.group === group)
         voice.release(this.context.currentTime, true);
+    if (!group || group === "metronome")
+      for (const voice of this.clickVoices)
+        voice.release(this.context.currentTime);
+  }
+  click(when, accent = false) {
+    const a = this.context,
+      oscillator = a.createOscillator(),
+      gain = a.createGain();
+    oscillator.frequency.value = accent ? 1320 : 880;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(accent ? 0.08 : 0.045, when + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.035);
+    oscillator.connect(gain).connect(this.master);
+    oscillator.start(when);
+    oscillator.stop(when + 0.045);
+    const voice = {
+      release: (time = a.currentTime) => {
+        gain.gain.cancelScheduledValues(time);
+        gain.gain.setValueAtTime(0, time);
+        oscillator.stop(time);
+      },
+    };
+    this.clickVoices.add(voice);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      gain.disconnect();
+      this.clickVoices.delete(voice);
+    };
+    return voice;
   }
   groupGeneration(group) {
     return this.groupVersions.get(group) || 0;

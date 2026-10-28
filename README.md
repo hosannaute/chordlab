@@ -25,8 +25,9 @@
 - Start with a compact scale-note melody view, reveal chromatic notes, and drag notes or their right edges to move/resize them. Editing buttons and keyboard navigation remain available.
 - Keep Play, Stop, Loop, Undo and Redo within reach using the fixed phone playback bar. Sound and keyboard settings fold away on smaller screens.
 - Chords and melody loop independently on the same tempo clock. New melody phrases use **one bar with eight note positions** and repeat continuously until you add another bar. Separate **Chord sustain** and **Melody sustain** controls let either part ring longer.
-- Save, rename, reopen and delete multiple local projects. Import/export validated version-2 JSON backups.
+- Save, rename, reopen and delete multiple local projects. Automatic recovery drafts protect unfinished edits across refreshes; manual saves remain separate. Import/export validated version-2 JSON backups.
 - Export standard format-1 MIDI with a tempo/time-signature track and separate chord/melody tracks.
+- Balance chords and melody with independent volume, mute and solo controls. Record one melody phrase with a metronome/count-in, edit note velocities and pedal changes by bar, and export stereo WAV audio.
 - Learn eight short theory topics with audio examples.
 
 ## Run locally
@@ -49,7 +50,7 @@ Open the printed URL, normally `http://127.0.0.1:5173/chordlab/`. ES modules req
 | `npm run build`   | Production files in `dist/`                                                         |
 | `npm run preview` | Serve the compiled production build                                                 |
 
-No runtime package dependencies. The application uses vanilla JavaScript ES modules, semantic HTML, CSS, Web Audio, Pointer Events, Blob downloads, and localStorage. Vite is the only direct development dependency. Optional Google Fonts requests improve typography; system fonts are the fallback. Composition data is never uploaded by the app.
+No runtime package dependencies. The application uses vanilla JavaScript ES modules, semantic HTML, CSS, Web Audio, Pointer Events, Blob downloads, and localStorage and OfflineAudioContext. Vite is the only direct development dependency. Optional Google Fonts requests improve typography; system fonts are the fallback. Composition data is never uploaded by the app.
 
 ## First sketch
 
@@ -73,7 +74,19 @@ Choose **Grid → 16 positions / bar** or **32 positions / bar** for finer subdi
 
 Older version-2 saves default to 4/4 and automatic melody length without changing notes or instrument. Meter, loop length and chromatic chord fields survive saves and JSON import/export. Re-saving an earlier library entry makes it the project restored on reload. See [timing details](docs/TIMING.md) and [borrowed chords and sustain](docs/CHORDS.md).
 
-### Keyboard access
+### Mixing, recording and audio export
+
+**Track mixer & pedal changes** contains separate chord/melody volume, mute and solo controls. Mute wins over solo; if either part is soloed, only soloed, unmuted parts play. The live keyboard and metronome remain independent monitors. Mixer controls work during playback. Master volume is also saved.
+
+**Pedal part / Bar / Hold pedal in this bar** lets each part sustain notes through a chosen bar. Consecutive down bars hold through to the next pedal-up bar; each part resets its pedal at its own phrase boundary. **Pedal every bar** holds through the phrase. **Clear pedal** removes the pattern. The simpler Short/Medium/Long hold extension remains available. Repeat phrase also repeats the melody pedal pattern. MIDI includes CC64 pedal changes, per-note velocity, track volume and mute/solo selection.
+
+Under **Sound & keyboard settings**, Touch velocity controls live playing and newly entered notes. Chord cards and the selected-note editor have individual velocity controls (1–127). Expressive piano selects separate soft/hard recordings at velocity 80; Piano release offers tight through very long tails. Those two piano-specific controls apply to Grand Piano. Other synth styles retain their own envelopes and respond to velocity.
+
+**Record melody** records one pass into the current melody phrase, with a None/1-bar/2-bar count-in and optional ongoing metronome. Play the onscreen piano or computer keys. Start and release times snap to the current grid; held notes are clipped to the phrase end. New notes replace overlapping notes of the same pitch and retain the other existing notes. Finish take commits early; the phrase end commits automatically. Undo restores the previous melody. Structural melody/key/meter editing is locked during a take; tempo, touch velocity and mixer controls remain live. Stop, leaving the window, Save, and exports finalize the captured take. Recording never creates additional bars automatically.
+
+**Export WAV** renders 1, 2, 4 or 8 arrangement passes using the selected sound, velocities, mixer, master volume, release and pedal settings. Output is stereo 44.1 kHz, 16-bit PCM WAV with release tails. Metronome and count-in are listening aids and are excluded. Exports are limited to two minutes and 20,000 note onsets before audio allocation to bound memory. Rendering runs locally with OfflineAudioContext. MIDI carries musical instructions and program suggestions; WAV carries the app's actual rendered sound.
+
+## Keyboard access
 
 `A W S E D F T G Y H U J K O L P ;` play consecutive semitones from the selected starting C. Hold Space for sustain when focus is outside an input or button, or use the Sustain toggle. Input fields keep normal typing behavior. Piano buttons also support normal Enter/Space activation. The melody grid uses a single Tab stop with arrow navigation, Home/End within a row, and Enter/Space to add/select a note. All destructive library actions ask for confirmation.
 
@@ -97,6 +110,10 @@ src/
   history.js   bounded undo/redo snapshots and grouped typing edits
   melody.js    validated note edits, scale rows and responsive page mapping
   timing.js    meter, quarter-note units, phrase length and bounded grid pages
+  studio.js    mixer validation, pedal holds and shared event duration
+  recovery.js  separate automatic draft history and recovery
+  recorder.js  clock-based, quantized melody takes
+  wav.js       bounded offline rendering and stereo PCM encoding
   main.js      application state, DOM components, editing and downloads
   style.css    responsive workspace, touch controls and visible focus
 test/          unit tests with no testing-framework dependency
@@ -109,11 +126,11 @@ Audio initializes and resumes after user interaction. Each note owns its sample 
 
 The first Grand Piano play loads approximately **1.4 MB** of self-hosted MP3 recordings, with visible progress and retryable errors. The decoded bank is reused for the page session; network caching follows the browser's normal HTTP cache. The synth sounds load immediately without the sample bank. No API key, account, audio CDN or runtime library is required.
 
-The bank contains 21 recordings from C2 through C7, mapped to neighboring pitches within one semitone across the app's range. It is a compact single-layer selection, not the full Salamander instrument: multiple velocity layers, sympathetic resonance and pedal/hammer noises are omitted. Decoded audio occupies about **96 MiB** at 44.1 kHz in the tested browser; memory varies with the audio context's sample rate. MIDI export carries notes and a program suggestion, not these recordings.
+The bank contains 21 recordings from C2 through C7, mapped to neighboring pitches within one semitone across the app's range. Compact mode uses this single-layer subset. Enable **Expressive piano** for 42 additional soft/hard recordings (v4 / v12), a 3.5 MB download using about 73.2 MiB decoded in the tested browser. This two-layer adaptation omits the full 16-layer mapping, sympathetic resonance and pedal/hammer noises. Decoded audio occupies about **96 MiB** at 44.1 kHz in the tested browser; memory varies with the audio context's sample rate. MIDI export carries notes and a program suggestion, not these recordings.
 
-Recordings are by **Alexander Holm**, licensed **CC BY 3.0**, distributed via the [Tone.js audio repository](https://github.com/Tonejs/audio/tree/efd8296360f9526e379bfbe5c1698ff54d6a1d34/salamander). See the [original Salamander project](https://github.com/sfzinstruments/SalamanderGrandPiano), [bundled attribution](public/audio/grand-piano/ATTRIBUTION.md) and checksum manifest. The files are unmodified; playback repitches and applies gain/envelopes. Source revision and SHA-256 hashes are pinned locally.
+Recordings are by **Alexander Holm**, licensed **CC BY 3.0**, distributed via the [Tone.js audio repository](https://github.com/Tonejs/audio/tree/efd8296360f9526e379bfbe5c1698ff54d6a1d34/salamander). See the [original Salamander project](https://github.com/sfzinstruments/SalamanderGrandPiano), [bundled attribution](public/audio/grand-piano/ATTRIBUTION.md) and checksum manifest. The compact files are unmodified. The optional layer pack applies SFZ onset offsets, retains up to 12 seconds, converts to mono 22,050 Hz MP3 and fades the final half second; conversion details, original/derived hashes and a reproducible FFmpeg script are included. Playback repitches and applies gain/envelopes. Source revision and SHA-256 hashes are pinned locally.
 
-The scheduler wakes every 25 ms and schedules approximately 120 ms ahead using `AudioContext.currentTime`. Each part has a sorted event list, loop period and cursor on that shared clock; it does not expand an infinite composition or wait for the other part to end. UI editing stops playback so a composition cannot silently diverge from the audible timeline. Rapid stop/start uses a generation guard to cancel pending audio initialization.
+The scheduler wakes every 25 ms and schedules approximately 120 ms ahead using `AudioContext.currentTime`. Each part has a sorted event list, loop period and cursor on that shared clock; it does not expand an infinite composition or wait for the other part to end. Structural editing stops playback so a composition cannot silently diverge from the audible timeline; tempo, mixer and touch-velocity controls can change live. Rapid stop/start uses a generation guard to cancel pending audio initialization.
 
 ### Music theory
 
@@ -125,13 +142,15 @@ Pitch classes and spelled note names are separate. A scale advances through seve
 
 The `chordlab-projects-v2` library holds up to 100 projects, each with at most 128 chords and 512 melody notes. The melody timeline spans 128 quarter-note beats and MIDI pitches 36–95. Note onsets support 1/32-note resolution. Imports validate numeric ranges, meter, phrase boundaries, durations, scale, instrument, version, nested entries and file size. Imported IDs are regenerated to avoid overwriting existing projects.
 
-The old `chordlab-v1` save is recoverable when no v2 library exists. Its original key is retained. Invalid existing data is reported and never silently overwritten. Writes are explicit; export JSON before clearing browser data or changing devices/origins. The library is local to each browser origin and is not cloud-synchronized.
+The old `chordlab-v1` save is recoverable when no v2 library exists. Its original key is retained. Invalid existing data is reported and never silently overwritten. Named library saves are explicit. Recovery drafts are written after 400 ms of inactivity and flushed on blur, visibility loss and dirty-page unload. Up to 20 recent drafts are retained separately; the latest unfinished draft is restored automatically, and older drafts can be opened in Library → Recovery drafts. A clean manual save prevents an unrelated older draft reopening. A failed or corrupt draft store is reported without overwriting it. Export JSON before clearing browser data or changing devices/origins. The library and recovery drafts are local to each browser origin and are not cloud-synchronized.
 
 MIDI uses format 1, 960 PPQN, microseconds-per-quarter-note tempo and the selected time-signature metadata. Shorter phrases repeat to fill one pass of the longer part, with notes clipped at the arrangement end. Note-off events precede note-ons at shared ticks. Same-pitch overlaps on a track merge to avoid early cutoffs. Tracks preserve the full composition length, including silence. Exports estimated above 200,000 note events are rejected before allocating the arrangement. General MIDI program suggestions do not reproduce the app's timbres or sustain pedal gestures.
 
 ## Verification
 
-Run `npm test` and `npm run build`. Unit tests cover all twelve keys in both modes, enharmonic spelling, seventh qualities, inversions, migration, rejected files, save/update/delete, transposition, duration timelines, decoded MIDI events, bounded voices, cleanup, scheduler lookahead, looping and cancellation.
+Run `npm test` and `npm run build`. Run `/chordlab/docs/studio-check.html` for five additional actual audio checks: layered sample selection/dynamics, stereo WAV and mute, active-voice tempo retiming, and metronome pulses.
+
+Unit tests cover all twelve keys in both modes, enharmonic spelling, seventh qualities, inversions, migration, rejected files, save/update/delete, transposition, duration timelines, decoded MIDI events, bounded voices, cleanup, scheduler lookahead, looping and cancellation.
 
 For real browser DSP checks, run the dev server and open `/chordlab/docs/audio-check.html`. Press **Run audio verification**. The ten checks render the actual Web Audio graph with `OfflineAudioContext` for all five synth presets and the decoded Grand Piano recordings, checking nonzero finite signal, peak headroom, silent tails, released voices, cancellation before a scheduled onset, and independently extended chord/melody sustain tails. The harness is a developer page, not part of the production bundle.
 
@@ -146,9 +165,9 @@ For a fork, change the base path if the repository name changes. Select **Settin
 ## Known limitations and next steps
 
 - Physical Android multitouch, device audio latency, speaker quality, Safari/iOS behavior and screen-reader workflows still require target-device testing.
-- The Grand Piano is a compact sample bank, with the limitations described above. There is no recording, audio export, MIDI hardware input, velocity editor or effects rack.
+- The Grand Piano is a compact sample bank, with the limitations described above. There is no MIDI hardware input or effects rack. Recording uses the onscreen/computer keyboard; optional expressive recordings have two velocity layers, not the full SFZ instrument.
 - A project has one time signature; mid-song meter changes, swing and triplet grids are not implemented. New melodies start at one bar and extend only when requested, with an absolute ceiling of 128 quarter-note beats. Saved multi-bar melodies remain intact. Chord timelines can be longer; large sessions need profiling on older phones.
-- Tempo changes affect future scheduling; held voices retain their existing duration. Preview timbres and pedal gestures are not embedded in MIDI.
+- Tempo changes reschedule queued onsets and remaining active holds on the same audio clock. MIDI includes bar pedal CC64 events and musical dynamics; app sample recordings and release timbres are carried by WAV instead.
 - No collaboration or cloud storage. Chord reordering uses accessible move controls; melody notes support pointer dragging as well as editing controls.
 - Local save data can be removed by browser cleanup/private mode. JSON exports are the supported backup/transfer mechanism.
 - Key choices cover all pitch classes using a practical spelling; there is no separate enharmonic-key selector. Harmonic/melodic-minor palettes remain future additions, though their chromatic chords can be built manually.

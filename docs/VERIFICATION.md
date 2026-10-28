@@ -1,5 +1,13 @@
 # Verification record
 
+## 2.6 recording, recovery, mixing and audio export — 28 October 2026
+
+- **70 automated tests pass**: original harmony/timing/loop checks plus queued tempo rescheduling at 60/220 BPM, active hold deadlines, 7/8 count-in clock, strict mixer/pedal/piano validation, recovery history/canonical signatures/corrupt storage, recording quantization/overdub/count-in rejection, WAV PCM/bounds, 42 layer-file checksums, MIDI mute/solo/velocity/volume/pedal and repeated pedal phrases.
+- **15 real browser audio checks pass**: the existing 10 graph/sample checks and five new studio checks. The 42 optional layers decode and select distinct soft/hard buffers. Rendered peaks 0.0112 / 0.0386 at velocities 48 / 112; no clipping or retained voices. WAV is stereo PCM and becomes exact silence when both parts are muted. Active voice retiming remains audible beyond its original scheduled stop and releases cleanly. Accented clicks render on time and leave a silent tail. Optional layers consume 73.2 MiB decoded in this browser; compact bank remains 96 MiB.
+- Browser workflow: changed project name, tempo, mixer mute and bar pedal without a manual save; refresh recovered all settings. Recorded an eight-key take into one melody bar and refreshed: all eight notes recovered. Exported a real layered-piano WAV from the app and checked its header with Python: stereo, 44,100 Hz, 16-bit, 8.9 seconds including release tail. Demo saved as `chordlab-studio-demo.wav` in the task outputs.
+- Responsive frames at 390/360 pixels: document client width equals scroll width (375/345 pixels after scrollbar), and the original one-bar/eight-position melody layout remains intact. Mixer, recording and export controls are accessible in the narrow layout.
+- Sample provenance: Alexander Holm's CC-BY-3.0 recordings from sfzinstruments/SalamanderGrandPiano commit 3382bf9496bba2486f5ab0de55a264d1dfc38404; two selected velocity layers, explicit onset/mono/12-second/fade conversions and original/derived SHA-256 manifests. All files are self-hosted.
+
 ## 2.5 one-bar melody and sequenced sustain — 28 October 2026
 
 - Automated checks: **60 tests pass**. All 192 supported meters fit eight equal note positions in one bar, on both layouts. Changing a filled phrase through every meter retains its eight bar-relative positions. Scheduler checks verify gapless note-eight → note-one timing while longer chords continue. Explicit Add bar/Repeat phrase, legacy notes, save/import validation, independent sustain gates, boundary clipping, cancellation, and same-pitch MIDI retriggers are covered.

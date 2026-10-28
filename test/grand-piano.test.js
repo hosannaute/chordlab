@@ -6,11 +6,47 @@ import {
   GrandPiano,
   GRAND_SAMPLES,
   nearestSample,
+  LAYER_SAMPLES,
 } from "../src/grand-piano.js";
 const decoded = () => ({
   duration: 1,
   numberOfChannels: 2,
   getChannelData: () => new Float32Array([0, 0.5, -0.25, 0]),
+});
+test("optional velocity pack loads distinct soft/hard samples and all 42 files match their checksums", async () => {
+  const requests = [],
+    bank = new GrandPiano(
+      { decodeAudioData: async () => decoded() },
+      () => {},
+      async (url) => {
+        requests.push(url);
+        return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    );
+  await Promise.all([bank.load(true), bank.load(true)]);
+  assert.equal(requests.length, 42);
+  assert.equal(bank.isReady(true), true);
+  assert.equal(bank.isReady(false), false);
+  assert.equal(bank.get(60, 48, true).layer, "soft");
+  assert.equal(bank.get(60, 112, true).layer, "hard");
+  assert.notEqual(
+    bank.get(60, 48, true).buffer,
+    bank.get(60, 112, true).buffer,
+  );
+  const directory = new URL("../public/audio/grand-piano/", import.meta.url);
+  const manifest = JSON.parse(
+    await readFile(new URL("layers/manifest.json", directory), "utf8"),
+  );
+  assert.equal(manifest.license, "CC-BY-3.0");
+  assert.equal(manifest.samples.length, 42);
+  for (const sample of LAYER_SAMPLES) {
+    const data = await readFile(new URL(sample.file, directory));
+    const entry = manifest.samples.find(
+      (entry) => entry.file === sample.file.replace("layers/", ""),
+    );
+    assert.equal(data.length, entry.bytes);
+    assert.equal(createHash("sha256").update(data).digest("hex"), entry.sha256);
+  }
 });
 test("grand bank covers every app pitch within one semitone of a recording", () => {
   assert.equal(GRAND_SAMPLES.length, 21);

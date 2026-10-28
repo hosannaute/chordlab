@@ -18,6 +18,8 @@ Custom cards use optional `type: "custom"`, `root`, `quality`, `beats`, `inversi
 
 This pedal sustains notes played on the live keyboard. For sequenced parts, use **Chord sustain** in the progression panel and **Melody sustain** above the melody grid. Each has Off / Short / Medium / Long settings, adding 0 / 0.5 / 1 / 2 quarter-note beats of hold after the written length. Settings are independent, saved with the project, undoable, and included in MIDI as extended note gates. Each part clears its sustained notes at its own phrase boundary, and Stop cancels both parts.
 
+The track mixer also offers a separate **Pedal part / Bar / Hold pedal in this bar** editor. Consecutive pedal-down bars sustain into the next pedal-up bar, with a reset at the phrase boundary. Repeat phrase copies the melody pedal pattern. These events are included as CC64 in MIDI and as held note gates in WAV.
+
 ## Eight note positions in one musical bar
 
 New melody phrases start at **one bar**, with **eight equally spaced note positions** on phones and desktop. Fill those positions and the melody returns immediately from position eight to position one on the next bar. In 4/4 they are eighth notes; other time signatures divide their own bar evenly into eight positions. Rests are the positions you leave empty.
